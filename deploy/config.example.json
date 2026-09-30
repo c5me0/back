@@ -1,0 +1,43 @@
+{
+  "log_level": "info",
+  "database": {
+    "host": "database",
+    "port": 5432,
+    "user": "cameo",
+    "password": "CHANGE_ME",
+    "database": "cameo",
+    "tls": false
+  },
+  "token": {
+    "secret": "CHANGE_ME",
+    "algorithm": "ed25519"
+  },
+  "service": {
+    "cors_allowed_origins": [],
+    "trusted_proxies": 1
+  },
+  "storage": {
+    "endpoint": "s3:10900",
+    "insecure": true,
+    "public_endpoint": "s3.example.com",
+    "public_insecure": false,
+    "bucket": "cameo",
+    "access_key": "CHANGE_ME",
+    "secret_key": "CHANGE_ME",
+    "region": "us-east-1"
+  },
+  "webrtc": {
+    "udp_port": 50000,
+    "public_ips": ["203.0.113.10"],
+    "ice_servers": []
+  },
+  "recording": {
+    "dir": "/data/recordings",
+    "ffmpeg_path": "ffmpeg",
+    "concurrency": 2
+  },
+  "otp": {
+    "fake_code": "000000",
+    "allow_fake": true
+  }
+}

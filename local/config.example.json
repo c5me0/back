@@ -13,11 +13,13 @@
     "algorithm": "ed25519"
   },
   "service": {
-    "cors_allowed_origins": []
+    "cors_allowed_origins": [],
+    "trusted_proxies": 0
   },
   "storage": {
     "endpoint": "localhost:10900",
     "public_endpoint": "localhost:10900",
+    "public_insecure": true,
     "bucket": "cameo",
     "access_key": "minioadmin",
     "secret_key": "minioadmin",

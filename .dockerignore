@@ -2,6 +2,9 @@
 .claude/
 .idea
 local/
+/config/
+deploy/
+compose.yml
 recordings/
 bin/
 *.md

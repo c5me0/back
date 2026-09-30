@@ -14,7 +14,10 @@ type Storage struct {
 	AccessKey      string `json:"access_key"`
 	SecretKey      string `json:"secret_key"`
 	Region         string `json:"region"`
-	Insecure       bool   `json:"insecure"`
+	// Insecure makes the internal client use plain HTTP.
+	Insecure bool `json:"insecure"`
+	// PublicInsecure makes presigned URLs use plain HTTP. Defaults to Insecure when PublicEndpoint is empty.
+	PublicInsecure bool `json:"public_insecure"`
 }
 
 func (s *Storage) Validate() error {
@@ -32,22 +35,22 @@ func (s *Storage) Validate() error {
 
 // Client builds the client used for server-side object operations.
 func (s *Storage) Client() (*minio.Client, error) {
-	return s.client(s.Endpoint)
+	return s.client(s.Endpoint, s.Insecure)
 }
 
 // PublicClient builds the client used to presign URLs handed to clients.
 // The region is fixed so presigning never probes the endpoint, which may be unreachable from the server.
 func (s *Storage) PublicClient() (*minio.Client, error) {
 	if s.PublicEndpoint == "" {
-		return s.client(s.Endpoint)
+		return s.client(s.Endpoint, s.Insecure)
 	}
-	return s.client(s.PublicEndpoint)
+	return s.client(s.PublicEndpoint, s.PublicInsecure)
 }
 
-func (s *Storage) client(endpoint string) (*minio.Client, error) {
+func (s *Storage) client(endpoint string, insecure bool) (*minio.Client, error) {
 	return minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(s.AccessKey, s.SecretKey, ""),
-		Secure: !s.Insecure,
+		Secure: !insecure,
 		Region: s.Region,
 	})
 }

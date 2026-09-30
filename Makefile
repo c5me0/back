@@ -1,6 +1,6 @@
 COMPOSE := docker compose -f local/compose.yml
 
-.PHONY: generate migration fmt lint build run up down
+.PHONY: generate migration fmt lint build run up down prod prod-logs
 
 # Ent client code and the DDL snapshot (internal/ent/migrate/schema.sql).
 generate:
@@ -28,3 +28,10 @@ up:
 
 down:
 	$(COMPOSE) down
+
+# Production deploy on the host, run from the repository root.
+prod:
+	VERSION=$$(git rev-parse --short HEAD) docker compose up -d --build --remove-orphans
+
+prod-logs:
+	docker compose logs -f --tail=200 cameo

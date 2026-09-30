@@ -68,12 +68,14 @@ curl -i localhost:18080/readyz
 | `token.secret` | 필수 | | 토큰 서명 키(hex). ed25519는 32바이트(64 hex), ed448은 57바이트 |
 | `token.algorithm` | 필수 | | `ed25519`, `ed448`, `hmac-sha256`, `hmac-sha512`, `blake2b-256`, `blake2b-512`, `blake3` |
 | `service.cors_allowed_origins` | 선택 | `[]` | CORS 허용 Origin 목록 |
+| `service.trusted_proxies` | 선택 | `0` | 앞단 리버스 프록시 수. 1 이상이면 `X-Forwarded-For`의 오른쪽에서 N번째 항목을 클라이언트 IP로 쓴다(rate limit 키). `0`이면 연결의 remote address. 프록시 없이 1 이상으로 두면 클라이언트가 IP를 위조할 수 있다 |
 | `storage.endpoint` | 필수 | | 서버가 접속하는 S3 엔드포인트(`host:port`, 스킴 없음) |
 | `storage.public_endpoint` | 선택 | `endpoint` | presigned URL에 들어가는 엔드포인트. 클라이언트가 도달할 수 있어야 함 |
 | `storage.bucket` | 필수 | | 버킷. 없으면 기동 시 생성 |
 | `storage.access_key` / `storage.secret_key` | 필수 | | S3 자격 증명 |
 | `storage.region` | 선택 | `us-east-1` | 서명 리전 |
-| `storage.insecure` | 선택 | `false` | `true`면 HTTP로 접속하고 presigned URL도 `http://` |
+| `storage.insecure` | 선택 | `false` | `true`면 서버가 `endpoint`에 HTTP로 접속 |
+| `storage.public_insecure` | 선택 | `false` (`public_endpoint`가 없으면 `insecure`) | `true`면 presigned URL이 `http://` |
 | `webrtc.udp_port` | 필수 | | 모든 통화가 공유하는 WebRTC UDP 포트(1-65535, IPv4) |
 | `webrtc.public_ips` | 선택 | `[]` | 서버 host ICE 후보를 이 IP로 바꿔 광고(NAT 뒤 서버). 운영에서는 공인 IP 필수 |
 | `webrtc.ice_servers[]` | 선택 | `[]` | `POST /v1/calls` 응답으로 클라이언트에 전달. 각 항목 `urls`(필수), `username`, `credential` |
@@ -100,6 +102,8 @@ curl -i localhost:18080/readyz
 | `make generate` | ent 코드 생성 + DDL 스냅샷(`internal/ent/migrate/schema.sql`) 갱신 |
 | `make migration` | 스냅샷과 `extra.sql`로부터 Atlas 마이그레이션 생성(Docker로 dev DB를 띄움) |
 | `make fmt` / `make lint` | golangci-lint 포맷/린트 |
+| `make prod` | 운영 호스트에서 루트 `compose.yml`로 빌드 후 기동(`VERSION`은 git short hash) |
+| `make prod-logs` | 운영 `cameo` 컨테이너 로그 |
 
 ## 스키마 변경 워크플로
 
@@ -127,12 +131,61 @@ docker build --build-arg VERSION=0.1.0 -t cameo .
 - `storage.public_endpoint`는 앱이 도달할 수 있는 주소여야 한다(presigned URL 호스트).
 - 운영 빌드(`VERSION != local`)는 Twilio 또는 `otp.allow_fake`가 없으면 기동하지 않고, 500 응답 메시지에 내부 오류를 노출하지 않는다.
 
+## 배포 (oxygen)
+
+oxygen은 Traefik v3가 유일한 리버스 프록시인 Docker 호스트다(외부 네트워크 `proxy`, 엔트리포인트 `https`, 인증서 리졸버 `dnsresolver`, `http`는 https로 리다이렉트). 루트 `compose.yml`이 `cameo`, `database`(PostgreSQL 18), `s3`(versitygw), `bucket-init`을 띄운다. `cameo`와 `s3`만 `proxy` 네트워크에 붙어 Traefik 라벨로 노출되고, DB와 S3는 호스트 포트를 열지 않는다.
+
+### 디렉터리
+
+```
+~/services/cameo/            git checkout (https://github.com/c5me0/back)
+├── compose.yml
+├── .env                     .env.example을 복사해 채운다 (gitignore)
+└── config/config.json       deploy/config.example.json을 복사해 채운다 (gitignore, /config로 마운트)
+```
+
+```sh
+git clone https://github.com/c5me0/back ~/services/cameo && cd ~/services/cameo
+cp .env.example .env
+mkdir -p config && cp deploy/config.example.json config/config.json
+```
+
+- `.env`: `CAMEO_API_HOST`, `CAMEO_S3_HOST`(각 도메인), `POSTGRES_PASSWORD`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`. `VERSION`은 `make prod`가 덮어쓴다.
+- `config/config.json`: `database.password`는 `POSTGRES_PASSWORD`, `storage.access_key`/`secret_key`는 `S3_ACCESS_KEY`/`S3_SECRET_KEY`와 같게, `storage.public_endpoint`는 `CAMEO_S3_HOST`(스킴 없이), `token.secret`은 `openssl rand -hex 32`, `webrtc.public_ips`는 공인 IPv4.
+- `service.trusted_proxies: 1`은 Traefik 뒤에서 필수다. `0`이면 모든 요청이 Traefik IP로 보여 rate limit이 전체 사용자에 공유된다. 반대로 프록시 없이 노출하면서 `1`로 두면 IP 위조가 가능하다.
+- `storage.public_insecure: false`: presigned URL은 Traefik이 TLS를 종료하는 `https://<CAMEO_S3_HOST>`로 나간다. 서버 내부 접속(`endpoint: s3:10900`)은 `insecure: true`로 평문 HTTP.
+
+### DNS와 포트
+
+- `CAMEO_API_HOST`, `CAMEO_S3_HOST` 두 개를 호스트를 가리키는 DNS only(프록시 끔) CNAME으로 만든다. TLS는 Traefik이 `dnsresolver`로 발급한 인증서로 종료한다.
+- 공유기에서 `50000/udp`를 호스트로 포트 포워딩한다(WebRTC 미디어, 모든 통화가 공유). HTTP/HTTPS는 Traefik이 이미 받는다.
+
+### 기동과 갱신
+
+```sh
+git pull
+make prod         # VERSION=$(git rev-parse --short HEAD) docker compose up -d --build --remove-orphans
+make prod-logs
+```
+
+마이그레이션은 기동 시 자동 적용된다.
+
+### 선택 기능 추가
+
+`config/config.json`에 섹션을 추가하고 `docker compose restart cameo`로 재시작한다.
+
+- Twilio Verify(실제 SMS): `"twilio": { "account_sid": "...", "auth_token": "...", "verify_service_sid": "..." }`. 설정 후 `otp.allow_fake`를 `false`로 바꾼다.
+- OpenAI(전사, 제목/요약): `"openai": { "api_key": "...", "language": "ko" }`. 없으면 녹음만 업로드한다.
+- APNs 푸시: `.p8` 키를 `config/`에 두고 `"push": { "apns": { "key_path": "/config/AuthKey_XXXX.p8", "key_id": "...", "team_id": "...", "bundle_id": "...", "production": true } }`.
+
 ## 저장소 구조
 
 ```
 .
 ├── main.go                  진입점 (healthcheck 하위 명령 포함)
 ├── docs/                    openapi.yaml, signaling.md
+├── compose.yml              운영 compose (Traefik 라벨)
+├── deploy/                  운영 config.example.json
 ├── local/                   compose.yml, config.example.json, config/ (gitignore)
 ├── internal/
 │   ├── config/              설정 로딩과 검증

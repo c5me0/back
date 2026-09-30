@@ -25,9 +25,11 @@ go.work.sum
 # env file
 .env
 .env.*
+!.env.example
 
 # Local dev config (contains credentials) and runtime data
 local/config/
+/config/
 recordings/
 .netrc
 

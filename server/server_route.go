@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
 	"cameo/internal/protocol"
@@ -15,6 +16,9 @@ import (
 func (s *Server) route() http.Handler {
 	r := chi.NewRouter()
 
+	if s.config.Service.TrustedProxies > 0 {
+		r.Use(chimiddleware.ClientIPFromXFFTrustedProxies(s.config.Service.TrustedProxies))
+	}
 	r.Use(middleware.RequestInfo)
 	r.Use(middleware.Logger(s.logger))
 	r.Use(cors.Handler(cors.Options{

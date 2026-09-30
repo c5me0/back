@@ -1,0 +1,95 @@
+name: cameo
+
+services:
+  cameo:
+    build:
+      context: .
+      args:
+        VERSION: "${VERSION:-unknown}"
+    image: cameo:${VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - default
+      - proxy
+    ports:
+      - "50000:50000/udp"
+    volumes:
+      - ./config:/config
+      - recordings:/data/recordings
+    healthcheck:
+      test: ["CMD", "/app/cameo", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      database:
+        condition: service_healthy
+      s3:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.cameo-api.rule=Host(`${CAMEO_API_HOST}`)
+      - traefik.http.routers.cameo-api.entrypoints=https
+      - traefik.http.routers.cameo-api.tls=true
+      - traefik.http.routers.cameo-api.tls.certresolver=dnsresolver
+      - traefik.http.services.cameo-api.loadbalancer.server.port=80
+  database:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cameo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: cameo
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cameo -d cameo"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+  bucket-init:
+    image: versity/versitygw:latest
+    entrypoint: ["sh", "-ec"]
+    command: ["mkdir -p /data/cameo"]
+    volumes:
+      - s3-data:/data
+    restart: "no"
+  s3:
+    image: versity/versitygw:latest
+    command: ["--port", ":10900", "--health", "/health", "posix", "/data"]
+    restart: unless-stopped
+    networks:
+      - default
+      - proxy
+    environment:
+      ROOT_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+      ROOT_SECRET_KEY: ${S3_SECRET_KEY:?}
+    volumes:
+      - s3-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:10900/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      bucket-init:
+        condition: service_completed_successfully
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.cameo-s3.rule=Host(`${CAMEO_S3_HOST}`)
+      - traefik.http.routers.cameo-s3.entrypoints=https
+      - traefik.http.routers.cameo-s3.tls=true
+      - traefik.http.routers.cameo-s3.tls.certresolver=dnsresolver
+      - traefik.http.services.cameo-s3.loadbalancer.server.port=10900
+
+networks:
+  proxy:
+    external: true
+
+volumes:
+  db-data:
+  s3-data:
+  recordings:
