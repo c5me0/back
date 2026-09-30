@@ -13,10 +13,10 @@ type RevenueCat struct {
 
 func (r *RevenueCat) Validate() error {
 	if r.PremiumEntitlement == "" {
-		r.PremiumEntitlement = "premium"
+		r.PremiumEntitlement = "cameo_pro"
 	}
 	if r.RestoreProductID == "" {
-		r.RestoreProductID = "restore"
+		r.RestoreProductID = "cameo_recovery"
 	}
 
 	return validation.ValidateStruct(r,
