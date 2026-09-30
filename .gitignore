@@ -1,0 +1,40 @@
+# IDE
+.idea
+*.iws
+out/
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/cameo
+bin/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+go.work.sum
+
+# env file
+.env
+.env.*
+
+# Local dev config (contains credentials) and runtime data
+local/config/
+recordings/
+.netrc
+
+# Personal tooling
+.claude/
+.mcp.json
+
+# OS
+.DS_Store
+Thumbs.db

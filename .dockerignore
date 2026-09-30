@@ -1,0 +1,15 @@
+.git
+.claude/
+.idea
+local/
+recordings/
+bin/
+*.md
+.env
+.env.*
+.netrc
+.gitignore
+.golangci.yml
+.dockerignore
+Dockerfile
+Makefile

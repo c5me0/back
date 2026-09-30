@@ -1,0 +1,195 @@
+version: "2"
+run:
+  relative-path-mode: gomod
+linters:
+  default: none
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - copyloopvar
+    - contextcheck
+    - depguard
+    # - dupl
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exptostd
+    - fatcontext
+    - forbidigo
+    # - funlen
+    - gocheckcompilerdirectives
+    - gochecknoinits
+    - gochecksumtype
+    # - gocognit
+    - goconst
+    - gocritic
+    # - gocyclo
+    - gomoddirectives
+    - goprintffuncname
+    - gosec
+    - govet
+    - iface
+    - ineffassign
+    - intrange
+    - lll
+    - loggercheck
+    - makezero
+    - mirror
+    - musttag
+    - modernize
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnesserr
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - perfsprint
+    - predeclared
+    - promlinter
+    - protogetter
+    - reassign
+    - recvcheck
+    - revive
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    - testableexamples
+    - testifylint
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - usetesting
+    - misspell
+    - thelper
+    - wastedassign
+    - whitespace
+    - zerologlint
+  settings:
+    depguard:
+      rules:
+        deprecated:
+          files:
+            - $all
+          deny:
+            - pkg: github.com/golang/protobuf
+              desc: Use google.golang.org/protobuf instead, see https://developers.google.com/protocol-buffers/docs/reference/go/faq#modules
+            - pkg: github.com/satori/go.uuid
+              desc: Use github.com/google/uuid instead, satori's package is not maintained
+            - pkg: github.com/gofrs/uuid$
+              desc: Use github.com/gofrs/uuid/v5 or later, it was not a go module before v5
+        non-main files:
+          files:
+            - '!**/main.go'
+          deny:
+            - pkg: log$
+              desc: Use zerolog instead.
+        non-test files:
+          files:
+            - '!$test'
+          deny:
+            - pkg: math/rand$
+              desc: Use math/rand/v2 instead, see https://go.dev/blog/randv2
+    errcheck:
+      check-type-assertions: true
+    exhaustive:
+      check:
+        - switch
+        - map
+      default-signifies-exhaustive: true
+    gochecksumtype:
+      default-signifies-exhaustive: false
+    goconst:
+      # keep pre-v2.13 behavior: don't flag literals in composite literals
+      exclude-types:
+        - call
+        - compositelit
+    gosec:
+      excludes:
+        - G117
+        - G704
+    gocritic:
+      settings:
+        captLocal:
+          paramsOnly: false
+        underef:
+          skipRecvDeref: false
+    govet:
+      disable:
+        - fieldalignment
+      enable-all: true
+      settings:
+        shadow:
+          strict: false
+    lll:
+      line-length: 200
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-no-explanation:
+        - funlen
+        - gocognit
+        - lll
+        - dupl
+        - nestif
+    perfsprint:
+      strconcat: false
+    reassign:
+      patterns:
+        - .*
+    sloglint:
+      no-global: all
+      context: scope
+    usetesting:
+      os-temp-dir: true
+    recvcheck:
+      disable-builtin: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - godot
+        source: (noinspection|TODO)
+      - linters:
+          - gocritic
+        source: //noinspection
+      - linters:
+          - bodyclose
+          - dupl
+          - errcheck
+          - exhaustive
+          - funlen
+          - goconst
+          - gosec
+          - noctx
+          - thelper
+          - wrapcheck
+        path: _test\.go
+      - linters:
+          - revive
+        text: 'package name'
+      - path: (.+)\.go$
+        text: 'shadow: declaration of .err. shadows declaration'
+      - path: (.+)\.go$
+        text: 'shadow: declaration of .ok. shadows declaration'
+issues:
+  max-same-issues: 50
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax

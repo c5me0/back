@@ -1,0 +1,1 @@
+-- Hand-written DDL that Ent's schema DSL cannot express. Appended to the Atlas desired state.

@@ -1,0 +1,1627 @@
+openapi: 3.1.0
+info:
+  title: CAMEO API
+  version: 0.1.0
+  summary: Backend API of CAMEO, a voice-call and photo-sharing app for couples.
+  description: |
+    JSON over HTTP. Every request and response body uses snake_case keys. Timestamps are RFC 3339 in UTC.
+
+    **Authentication.** `POST /v1/auth/phone/verify` returns a bearer token. Send it as
+    `Authorization: Bearer <token>`; clients that cannot set headers (WebSocket) may pass `?token=<token>`
+    instead. Sessions last 90 days and are extended to 90 days from now on the first authenticated request
+    after an hour of inactivity.
+
+    **Errors.** Every error body is an `ErrorResponse` envelope `{code, message, meta?}`. The HTTP status is
+    derived from `code` (see `x-error-codes` on each operation). Validation failures return `invalid_request`
+    with `meta.fields` (field name to message). Unexpected failures return `internal_error` with
+    `meta.request_id`. Unknown routes return `404 not_found`; a known route with the wrong method returns
+    `405` with code `invalid_request`.
+
+    **Path IDs.** A malformed UUID in a path parameter is reported as `404 not_found`, the same as a missing
+    or foreign resource. Calls and photos of another couple are always `not_found`.
+
+    **Pagination.** List endpoints return `{items, has_more, next_cursor}` ordered by `created_at DESC, id DESC`.
+    Pass `next_cursor` back as `cursor` to fetch the next page.
+
+    **Request-ID.** Every response carries a `Request-ID` header (UUIDv7) that also appears in server logs.
+
+    **Live calls.** The WebSocket signaling protocol, call state machine and push payloads are documented in
+    [signaling.md](./signaling.md).
+servers:
+  - url: http://localhost:18080
+    description: Local development (`make run`)
+security:
+  - bearerAuth: []
+tags:
+  - name: probe
+    description: Liveness and readiness
+  - name: auth
+    description: Phone sign-in and sign-out
+  - name: account
+    description: The authenticated user's profile
+  - name: couple
+    description: Pairing with a partner
+  - name: device
+    description: Push token registration
+  - name: call
+    description: Calls, call history and live call actions
+  - name: photo
+    description: The couple's shared photo library
+
+paths:
+  /livez:
+    get:
+      tags: [probe]
+      operationId: live
+      summary: Liveness probe
+      description: 200 while the process should keep running, 503 while the instance is draining (`/tmp/drain` exists). No body.
+      security: []
+      responses:
+        "200":
+          description: Alive
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+        "503":
+          description: Draining
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+
+  /readyz:
+    get:
+      tags: [probe]
+      operationId: ready
+      summary: Readiness probe
+      description: 200 when the database answers a ping within 2 seconds and the instance is not draining, otherwise 503. No body.
+      security: []
+      responses:
+        "200":
+          description: Ready
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+        "503":
+          description: Draining or database unreachable
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+
+  /v1/auth/phone/start:
+    post:
+      tags: [auth]
+      operationId: phoneStart
+      summary: Send a verification code
+      description: |
+        Sends an SMS verification code through Twilio Verify. Without Twilio configured, no code is sent and the
+        configured `otp.fake_code` (default `000000`) is accepted by `/v1/auth/phone/verify`.
+
+        Rate limits: 5 requests per minute per client IP, and 3 requests per 10 minutes per `phone`
+        (falls back to the client IP when the body has no phone). Exceeding either returns `429 rate_limit`
+        with `Retry-After` and `X-RateLimit-*` headers.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneStartRequest"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: invalid_request, status: 400, when: Body is not JSON or phone is not E.164 }
+        - { code: rate_limit, status: 429, when: IP or phone rate limit exceeded }
+        - { code: internal_error, status: 500, when: SMS provider failed }
+
+  /v1/auth/phone/verify:
+    post:
+      tags: [auth]
+      operationId: phoneVerify
+      summary: Verify the code and sign in
+      description: |
+        Checks the code and signs the phone's user in, creating the user (with a fresh pairing code) on first
+        sign-in. Returns a session token valid for 90 days.
+
+        Rate limit: 10 requests per minute per client IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneVerifyRequest"
+      responses:
+        "200":
+          description: Signed in
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhoneVerifyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: invalid_request, status: 400, when: Body is not JSON or fields fail validation }
+        - { code: "auth:invalid_code", status: 400, when: Code is wrong or expired }
+        - { code: rate_limit, status: 429, when: IP rate limit exceeded }
+        - { code: internal_error, status: 500, when: Verification provider or database failed }
+
+  /v1/auth/signout:
+    post:
+      tags: [auth]
+      operationId: signout
+      summary: Revoke the current session
+      description: Deletes the session of the presented token. Devices registered with this session are deleted with it.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/me:
+    get:
+      tags: [account]
+      operationId: getMe
+      summary: Get the authenticated user
+      responses:
+        "200":
+          description: The user
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: internal_error, status: 500, when: Database failed }
+    patch:
+      tags: [account]
+      operationId: updateMe
+      summary: Update profile and alert preferences
+      description: Only the fields present in the body change. `display_name` is trimmed and cannot be cleared.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeRequest"
+      responses:
+        "200":
+          description: The updated user
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: invalid_request, status: 400, when: display_name is blank or longer than 30 characters }
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/couple:
+    get:
+      tags: [couple]
+      operationId: getCouple
+      summary: Get the authenticated user's couple
+      responses:
+        "200":
+          description: The couple
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Couple"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database failed }
+    post:
+      tags: [couple]
+      operationId: connectCouple
+      summary: Connect with the owner of a pairing code
+      description: |
+        Pairs the authenticated user with the user owning `code`. On success both users receive new pairing
+        codes and the partner receives a `partner_connected` alert push.
+
+        Rate limit: 10 requests per minute per user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectCoupleRequest"
+      responses:
+        "201":
+          description: Connected
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Couple"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: invalid_request, status: 400, when: code is not 6 digits }
+        - { code: "couple:self", status: 400, when: The code is the user's own }
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "couple:code_not_found", status: 404, when: No user owns the code }
+        - { code: "couple:already_connected", status: 409, when: The user already has a partner }
+        - { code: "couple:partner_unavailable", status: 409, when: The code owner already has a partner }
+        - { code: rate_limit, status: 429, when: Per-user rate limit exceeded }
+        - { code: internal_error, status: 500, when: Database failed }
+    delete:
+      tags: [couple]
+      operationId: disconnectCouple
+      summary: Disconnect from the partner
+      description: |
+        Dissolves the couple, force-ends a ringing or active call of the couple (status `ended`) and sends the
+        partner a `partner_disconnected` alert push. Calls and photos stay with the dissolved couple and are no
+        longer reachable by either user.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/couple/code:
+    post:
+      tags: [couple]
+      operationId: regeneratePairingCode
+      summary: Replace the user's pairing code
+      responses:
+        "200":
+          description: The new pairing code
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairingCodeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: internal_error, status: 500, when: Database failed or every generated code collided }
+
+  /v1/devices:
+    post:
+      tags: [device]
+      operationId: registerDevice
+      summary: Register a push token
+      description: |
+        Binds an APNs token to the current session (upsert on `(platform, token)`); a token previously
+        registered by another account moves to this one. Register the regular APNs token as `apns` and the
+        PushKit token as `apns_voip`. Incoming calls are delivered only to `apns_voip` tokens.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDeviceRequest"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: invalid_request, status: 400, when: Unknown platform, missing platform, or token empty or longer than 200 characters }
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/devices/{token}:
+    delete:
+      tags: [device]
+      operationId: deleteDevice
+      summary: Unregister a push token
+      description: Deletes the user's device rows with this token (any platform).
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: The push token as registered.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: The user has no device with this token }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/calls:
+    post:
+      tags: [call]
+      operationId: createCall
+      summary: Call the partner
+      description: |
+        Creates a `ringing` call with the authenticated user as caller, sends the partner an `incoming_call`
+        VoIP push and starts the 60-second ring timer. Use the returned `ice_servers` for the
+        `RTCPeerConnection`, then open the signaling WebSocket (`GET /v1/calls/{id}/signal`).
+      responses:
+        "201":
+          description: Ringing
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateCallResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: "call:busy", status: 409, when: The couple already has a ringing or active call }
+        - { code: internal_error, status: 500, when: Database failed }
+    get:
+      tags: [call]
+      operationId: listCalls
+      summary: List the couple's calls
+      description: Newest first. Includes calls in every status.
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Favorite"
+      responses:
+        "200":
+          description: A page of calls
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: invalid_request, status: 400, when: Malformed cursor, limit outside 1-100, or favorite not a boolean }
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/calls/{id}:
+    parameters:
+      - $ref: "#/components/parameters/CallID"
+    get:
+      tags: [call]
+      operationId: getCall
+      summary: Get a call with highlights, transcript, recording and shared photos
+      description: |
+        `highlights` are ordered by `offset_seconds`, `photos` (uploaded only) by `created_at` ascending.
+        `recording_url` is set once the transcript pipeline uploaded the mixed recording (m4a, AAC mono);
+        it and the photo URLs expire at `url_expires_at` (1 hour).
+      responses:
+        "200":
+          description: The call
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallDetail"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database or storage failed }
+    delete:
+      tags: [call]
+      operationId: deleteCall
+      summary: Delete a finished call
+      description: Deletes the call with its highlights and recordings. Photos shared in the call stay in the library, detached from the call.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: "call:invalid_state", status: 409, when: The call is ringing or active }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/calls/{id}/decline:
+    parameters:
+      - $ref: "#/components/parameters/CallID"
+    post:
+      tags: [call]
+      operationId: declineCall
+      summary: Decline a ringing call (callee only)
+      description: Moves a `ringing` call to `declined`. Connected signaling sockets receive `ended` and close.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: forbidden, status: 403, when: The user is the caller }
+        - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: "call:invalid_state", status: 409, when: The call is not ringing }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/calls/{id}/end:
+    parameters:
+      - $ref: "#/components/parameters/CallID"
+    post:
+      tags: [call]
+      operationId: endCall
+      summary: Hang up a ringing or active call
+      description: |
+        Same as sending `hangup` over the signaling socket. A caller hanging up a `ringing` call makes it
+        `missed`; every other case makes it `ended`.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: "call:invalid_state", status: 409, when: The call already finished }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/calls/{id}/highlights:
+    parameters:
+      - $ref: "#/components/parameters/CallID"
+    post:
+      tags: [call]
+      operationId: createHighlight
+      summary: Mark a moment of an active call
+      description: |
+        `offset_seconds` is measured by the client from the call's `started_at`. The other participant receives
+        `highlight_added` over the signaling socket. Highlights are emphasised in the generated summary.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateHighlightRequest"
+      responses:
+        "201":
+          description: The highlight
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Highlight"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: invalid_request, status: 400, when: offset_seconds missing or negative }
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: "call:invalid_state", status: 409, when: The call is not active }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/calls/{id}/favorite:
+    parameters:
+      - $ref: "#/components/parameters/CallID"
+    put:
+      tags: [call]
+      operationId: favoriteCall
+      summary: Add the call to the user's favorites
+      description: Idempotent. Favorites are per user.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database failed }
+    delete:
+      tags: [call]
+      operationId: unfavoriteCall
+      summary: Remove the call from the user's favorites
+      description: Idempotent.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/calls/{id}/photos:
+    parameters:
+      - $ref: "#/components/parameters/CallID"
+    post:
+      tags: [call]
+      operationId: sharePhoto
+      summary: Show a library photo to the partner during an active call
+      description: |
+        Attaches the photo to the call (only when it is not attached to a call yet), sends the partner
+        `photo_shared` over the signaling socket (with the partner's own `is_favorite`) and a `photo_shared`
+        alert push. Returns the photo as seen by the sender.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharePhotoRequest"
+      responses:
+        "200":
+          description: The shared photo
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Photo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: invalid_request, status: 400, when: photo_id missing or not a UUID }
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed call ID, no such call, or no such photo in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: "call:invalid_state", status: 409, when: The call is not active }
+        - { code: "photo:invalid_state", status: 409, when: The photo upload was not completed }
+        - { code: internal_error, status: 500, when: Database or storage failed }
+
+  /v1/calls/{id}/signal:
+    parameters:
+      - $ref: "#/components/parameters/CallID"
+    get:
+      tags: [call]
+      operationId: signalCall
+      summary: Signaling WebSocket of a live call
+      description: |
+        Upgrades to a WebSocket carrying JSON text frames for WebRTC negotiation and call state. The full
+        message catalogue, state machine, timers and close codes are in [signaling.md](./signaling.md).
+
+        Authenticate with `Authorization: Bearer <token>` or, when the client cannot set headers, the
+        `token` query parameter (`/v1/calls/{id}/signal?token=<token>`). The call must be `ringing` or
+        `active` and live in this server process. The pre-upgrade checks return the usual error envelope;
+        once upgraded, errors arrive as `{"type":"error"}` frames and the socket closes with 1000 (call
+        ended or not live), 1008 (not a participant) or 4000 (replaced by a newer socket of the same user).
+        The server pings every 15 seconds; frames larger than 64 KiB close the socket.
+      security:
+        - bearerAuth: []
+        - tokenQuery: []
+      parameters:
+        - name: Upgrade
+          in: header
+          required: true
+          schema:
+            type: string
+            const: websocket
+      responses:
+        "101":
+          description: Switching protocols to WebSocket
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: "call:invalid_state", status: 409, when: The call is not ringing or active, or is not live in this process }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/photos/upload-url:
+    post:
+      tags: [photo]
+      operationId: createPhotoUploadURL
+      summary: Reserve a photo and get presigned upload URLs
+      description: |
+        Creates a `pending` photo and returns presigned `PUT` URLs (valid 15 minutes) for the original and the
+        client-generated thumbnail. Upload both with a plain `PUT` of the raw bytes, then call
+        `POST /v1/photos/{id}/complete`. Pending photos are invisible to every read endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadURLRequest"
+      responses:
+        "201":
+          description: Upload URLs
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadURLResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: invalid_request, status: 400, when: Unsupported content_type, sizes out of range, or width/height below 1 }
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database or storage failed }
+
+  /v1/photos/{id}/complete:
+    parameters:
+      - $ref: "#/components/parameters/PhotoID"
+    post:
+      tags: [photo]
+      operationId: completePhoto
+      summary: Publish an uploaded photo (uploader only)
+      description: |
+        Verifies that both objects exist and fit the limits (original 25 MiB, thumbnail 1 MiB), stores the
+        actual original size and marks the photo `uploaded`. Oversized objects are deleted and reported as
+        `photo:upload_incomplete`; upload again through a new `upload-url`.
+      responses:
+        "200":
+          description: The published photo
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Photo"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: forbidden, status: 403, when: The user is not the uploader }
+        - { code: not_found, status: 404, when: Malformed ID or no such photo in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: "photo:invalid_state", status: 409, when: The photo is already uploaded }
+        - { code: "photo:upload_incomplete", status: 409, when: An object is missing or exceeds its size limit }
+        - { code: internal_error, status: 500, when: Database or storage failed }
+
+  /v1/photos:
+    get:
+      tags: [photo]
+      operationId: listPhotos
+      summary: List the couple's uploaded photos
+      description: Newest first. Download URLs expire at `url_expires_at` (1 hour).
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Favorite"
+        - name: call_id
+          in: query
+          required: false
+          description: Only photos shared in this call.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: A page of photos
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: invalid_request, status: 400, when: Malformed cursor or call_id, limit outside 1-100, or favorite not a boolean }
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database or storage failed }
+
+  /v1/photos/{id}:
+    parameters:
+      - $ref: "#/components/parameters/PhotoID"
+    get:
+      tags: [photo]
+      operationId: getPhoto
+      summary: Get an uploaded photo
+      responses:
+        "200":
+          description: The photo
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Photo"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed ID, pending photo, or no such photo in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database or storage failed }
+    delete:
+      tags: [photo]
+      operationId: deletePhoto
+      summary: Delete a photo
+      description: Deletes the photo (pending or uploaded, by either partner) and its stored objects.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed ID or no such photo in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/photos/{id}/favorite:
+    parameters:
+      - $ref: "#/components/parameters/PhotoID"
+    put:
+      tags: [photo]
+      operationId: favoritePhoto
+      summary: Add the photo to the user's favorites
+      description: Idempotent. Favorites are per user.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed ID, pending photo, or no such photo in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database failed }
+    delete:
+      tags: [photo]
+      operationId: unfavoritePhoto
+      summary: Remove the photo from the user's favorites
+      description: Idempotent.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: not_found, status: 404, when: Malformed ID, pending photo, or no such photo in the couple }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database failed }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Session token from `POST /v1/auth/phone/verify`.
+    tokenQuery:
+      type: apiKey
+      in: query
+      name: token
+      description: The same session token as a query parameter, for clients that cannot set headers (WebSocket). Accepted on every authenticated route; prefer the header.
+
+  headers:
+    RequestID:
+      description: UUIDv7 identifying the request in server logs. Present on every response.
+      schema:
+        type: string
+        format: uuid
+
+  parameters:
+    CallID:
+      name: id
+      in: path
+      required: true
+      description: Call ID. A malformed UUID returns `404 not_found`.
+      schema:
+        type: string
+        format: uuid
+    PhotoID:
+      name: id
+      in: path
+      required: true
+      description: Photo ID. A malformed UUID returns `404 not_found`.
+      schema:
+        type: string
+        format: uuid
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: "`next_cursor` of the previous page."
+      schema:
+        $ref: "#/components/schemas/Cursor"
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Page size.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 25
+    Favorite:
+      name: favorite
+      in: query
+      required: false
+      description: When true, only items the authenticated user favorited. Parsed with Go `strconv.ParseBool` (`true`, `1`, `t`, ...).
+      schema:
+        type: boolean
+        default: false
+
+  responses:
+    NoContent:
+      description: Success, no body
+      headers:
+        Request-ID:
+          $ref: "#/components/headers/RequestID"
+    BadRequest:
+      description: "`invalid_request` or a domain code mapped to 400 (see `x-error-codes`)"
+      headers:
+        Request-ID:
+          $ref: "#/components/headers/RequestID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: invalid_request
+            message: "validation failed: phone: must be an E.164 phone number."
+            meta:
+              fields:
+                phone: must be an E.164 phone number
+    Unauthenticated:
+      description: "`unauthenticated`: token missing, invalid, revoked or expired"
+      headers:
+        Request-ID:
+          $ref: "#/components/headers/RequestID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: unauthenticated
+            message: invalid token
+    Forbidden:
+      description: "`forbidden`: the user may not perform this action on the resource"
+      headers:
+        Request-ID:
+          $ref: "#/components/headers/RequestID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: "`not_found` or a domain code mapped to 404 (see `x-error-codes`)"
+      headers:
+        Request-ID:
+          $ref: "#/components/headers/RequestID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: "couple:not_connected"
+            message: couple not connected
+    Conflict:
+      description: A domain code mapped to 409 (see `x-error-codes`)
+      headers:
+        Request-ID:
+          $ref: "#/components/headers/RequestID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: "call:busy"
+            message: a call is already in progress
+    RateLimited:
+      description: "`rate_limit`"
+      headers:
+        Request-ID:
+          $ref: "#/components/headers/RequestID"
+        Retry-After:
+          description: Seconds of the rate-limit window.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: rate_limit
+            message: too many requests
+    InternalError:
+      description: "`internal_error`"
+      headers:
+        Request-ID:
+          $ref: "#/components/headers/RequestID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: internal_error
+            message: internal server error
+            meta:
+              request_id: 01926d3e-7c1a-7b8e-9f00-3a1b2c3d4e5f
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          $ref: "#/components/schemas/ErrorCode"
+        message:
+          type: string
+          description: Human-readable detail for logs; do not show verbatim to users.
+        meta:
+          type: object
+          description: "Optional details: `fields` (validation messages by field) for `invalid_request`, `request_id` for `internal_error`."
+          properties:
+            fields:
+              type: object
+              additionalProperties:
+                type: string
+            request_id:
+              type: string
+              format: uuid
+          additionalProperties: true
+
+    ErrorCode:
+      type: string
+      description: |
+        HTTP status per code: internal_error 500, invalid_request 400, unauthenticated 401, forbidden 403,
+        not_found 404, rate_limit 429, auth:invalid_code 400, couple:not_connected 404,
+        couple:code_not_found 404, couple:self 400, couple:already_connected 409,
+        couple:partner_unavailable 409, call:busy 409, call:invalid_state 409, photo:upload_incomplete 409,
+        photo:invalid_state 409.
+      enum:
+        - internal_error
+        - invalid_request
+        - unauthenticated
+        - forbidden
+        - not_found
+        - rate_limit
+        - "auth:invalid_code"
+        - "couple:not_connected"
+        - "couple:code_not_found"
+        - "couple:self"
+        - "couple:already_connected"
+        - "couple:partner_unavailable"
+        - "call:busy"
+        - "call:invalid_state"
+        - "photo:upload_incomplete"
+        - "photo:invalid_state"
+
+    CallStatus:
+      type: string
+      enum: [ringing, active, ended, missed, declined, failed]
+
+    TranscriptStatus:
+      type: string
+      description: |
+        none: nothing was recorded (the call never became active). pending: queued for the pipeline.
+        processing: encoding, uploading and transcribing. completed: transcript saved (title and summary are
+        set when the transcript has speech). skipped: recording uploaded but OpenAI is not configured.
+        failed: the pipeline failed.
+      enum: [none, pending, processing, completed, failed, skipped]
+
+    DevicePlatform:
+      type: string
+      description: "`apns` for alert pushes, `apns_voip` for PushKit (incoming calls)."
+      enum: [apns, apns_voip]
+
+    Cursor:
+      type: string
+      description: base64url without padding of created_at UnixNano (8 bytes big-endian) followed by the 16 UUID bytes. Treat as opaque.
+      pattern: "^[A-Za-z0-9_-]{32}$"
+
+    Page:
+      type: object
+      required: [items, has_more, next_cursor]
+      properties:
+        items:
+          type: array
+        has_more:
+          type: boolean
+        next_cursor:
+          description: Set when has_more is true.
+          oneOf:
+            - $ref: "#/components/schemas/Cursor"
+            - type: "null"
+
+    CallPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Call"
+
+    PhotoPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Photo"
+
+    Partner:
+      type: object
+      required: [id, display_name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: [string, "null"]
+
+    User:
+      type: object
+      required: [id, phone, display_name, pairing_code, call_alert, highlight_alert, partner, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        phone:
+          type: string
+          description: E.164
+          examples: ["+821012345678"]
+        display_name:
+          type: [string, "null"]
+        pairing_code:
+          type: string
+          pattern: "^\\d{6}$"
+          description: The code the partner enters in `POST /v1/couple`. Replaced after every connect.
+        call_alert:
+          type: boolean
+          description: Receive the `missed_call` alert push.
+        highlight_alert:
+          type: boolean
+          description: Receive the `summary_ready` alert push.
+        partner:
+          description: "null when not connected."
+          oneOf:
+            - $ref: "#/components/schemas/Partner"
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+
+    CouplePartner:
+      type: object
+      required: [id, display_name, phone]
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: [string, "null"]
+        phone:
+          type: string
+
+    Couple:
+      type: object
+      required: [id, partner, connected_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        partner:
+          $ref: "#/components/schemas/CouplePartner"
+        connected_at:
+          type: string
+          format: date-time
+
+    Call:
+      type: object
+      required: [id, status, caller_id, callee_id, started_at, ended_at, title, summary, transcript_status, highlight_count, is_favorite, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/CallStatus"
+        caller_id:
+          type: string
+          format: uuid
+        callee_id:
+          type: string
+          format: uuid
+        started_at:
+          type: [string, "null"]
+          format: date-time
+          description: When both participants' media connected (the call became active).
+        ended_at:
+          type: [string, "null"]
+          format: date-time
+        title:
+          type: [string, "null"]
+          description: Generated after the call when the transcript has speech.
+        summary:
+          type: [string, "null"]
+        transcript_status:
+          $ref: "#/components/schemas/TranscriptStatus"
+        highlight_count:
+          type: integer
+        is_favorite:
+          type: boolean
+          description: Favorited by the authenticated user.
+        created_at:
+          type: string
+          format: date-time
+
+    Highlight:
+      type: object
+      required: [id, user_id, offset_seconds, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        offset_seconds:
+          type: number
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+
+    Segment:
+      type: object
+      description: One transcribed utterance, timed in seconds from the start of the recording (call started_at).
+      required: [speaker_user_id, start, end, text]
+      properties:
+        speaker_user_id:
+          type: string
+          format: uuid
+        start:
+          type: number
+        end:
+          type: number
+        text:
+          type: string
+
+    CallDetail:
+      allOf:
+        - $ref: "#/components/schemas/Call"
+        - type: object
+          required: [highlights, transcript, recording_url, url_expires_at, photos, ice_servers]
+          properties:
+            highlights:
+              type: array
+              items:
+                $ref: "#/components/schemas/Highlight"
+            transcript:
+              type: array
+              description: Empty until transcript_status is completed.
+              items:
+                $ref: "#/components/schemas/Segment"
+            recording_url:
+              type: [string, "null"]
+              format: uri
+              description: Presigned GET URL of the mixed recording (audio/mp4). Null until the pipeline uploaded it.
+            url_expires_at:
+              type: string
+              format: date-time
+              description: Expiry of recording_url and the photo URLs (1 hour).
+            photos:
+              type: array
+              items:
+                $ref: "#/components/schemas/Photo"
+            ice_servers:
+              type: array
+              description: Same as POST /v1/calls ice_servers; the callee uses these for its RTCPeerConnection.
+              items:
+                $ref: "#/components/schemas/ICEServer"
+
+    ICEServer:
+      type: object
+      required: [urls]
+      properties:
+        urls:
+          type: array
+          items:
+            type: string
+          examples: [["stun:stun.l.google.com:19302"]]
+        username:
+          type: string
+          description: Omitted when empty.
+        credential:
+          type: string
+          description: Omitted when empty.
+
+    Photo:
+      type: object
+      required: [id, uploader_id, call_id, content_type, size_bytes, width, height, taken_at, is_favorite, url, thumbnail_url, url_expires_at, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        uploader_id:
+          type: string
+          format: uuid
+        call_id:
+          type: [string, "null"]
+          format: uuid
+          description: The call the photo was first shared in.
+        content_type:
+          type: string
+          enum: [image/jpeg, image/png, image/heic, image/webp]
+        size_bytes:
+          type: integer
+          format: int64
+          description: Actual size of the uploaded original.
+        width:
+          type: [integer, "null"]
+        height:
+          type: [integer, "null"]
+        taken_at:
+          type: [string, "null"]
+          format: date-time
+        is_favorite:
+          type: boolean
+          description: Favorited by the user the photo is presented to.
+        url:
+          type: string
+          format: uri
+          description: Presigned GET URL of the original.
+        thumbnail_url:
+          type: string
+          format: uri
+          description: Presigned GET URL of the thumbnail.
+        url_expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    PhoneStartRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          description: E.164 phone number.
+          pattern: "^\\+[1-9]\\d{7,14}$"
+          examples: ["+821012345678"]
+
+    PhoneVerifyRequest:
+      type: object
+      required: [phone, code]
+      properties:
+        phone:
+          type: string
+          pattern: "^\\+[1-9]\\d{7,14}$"
+        code:
+          type: string
+          pattern: "^\\d{4,8}$"
+          examples: ["000000"]
+
+    PhoneVerifyResponse:
+      type: object
+      required: [token, expires_at, is_new, user]
+      properties:
+        token:
+          type: string
+          description: Bearer token.
+        expires_at:
+          type: string
+          format: date-time
+        is_new:
+          type: boolean
+          description: True when this sign-in created the user.
+        user:
+          $ref: "#/components/schemas/User"
+
+    UpdateMeRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 30
+          description: Trimmed, then 1-30 characters (runes).
+        call_alert:
+          type: boolean
+        highlight_alert:
+          type: boolean
+
+    ConnectCoupleRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          pattern: "^\\d{6}$"
+
+    PairingCodeResponse:
+      type: object
+      required: [pairing_code]
+      properties:
+        pairing_code:
+          type: string
+          pattern: "^\\d{6}$"
+
+    RegisterDeviceRequest:
+      type: object
+      required: [platform, token]
+      properties:
+        platform:
+          $ref: "#/components/schemas/DevicePlatform"
+        token:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: APNs or PushKit device token (hex).
+
+    CreateCallResponse:
+      type: object
+      required: [call, ice_servers]
+      properties:
+        call:
+          $ref: "#/components/schemas/Call"
+        ice_servers:
+          type: array
+          description: ICE servers for the client RTCPeerConnection configuration. May be empty.
+          items:
+            $ref: "#/components/schemas/ICEServer"
+
+    CreateHighlightRequest:
+      type: object
+      required: [offset_seconds]
+      properties:
+        offset_seconds:
+          type: number
+          minimum: 0
+          description: Seconds since the call's started_at.
+
+    SharePhotoRequest:
+      type: object
+      required: [photo_id]
+      properties:
+        photo_id:
+          type: string
+          format: uuid
+
+    UploadURLRequest:
+      type: object
+      required: [content_type, size_bytes, thumbnail_size_bytes]
+      properties:
+        content_type:
+          type: string
+          enum: [image/jpeg, image/png, image/heic, image/webp]
+        size_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 26214400
+          description: Original size, at most 25 MiB.
+        thumbnail_size_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1048576
+          description: Thumbnail size, at most 1 MiB.
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+        taken_at:
+          type: string
+          format: date-time
+
+    UploadURLResponse:
+      type: object
+      required: [photo_id, upload_url, thumbnail_upload_url, expires_at]
+      properties:
+        photo_id:
+          type: string
+          format: uuid
+        upload_url:
+          type: string
+          format: uri
+          description: Presigned PUT URL for the original.
+        thumbnail_upload_url:
+          type: string
+          format: uri
+          description: Presigned PUT URL for the thumbnail.
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiry of both upload URLs (15 minutes).

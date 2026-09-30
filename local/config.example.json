@@ -1,0 +1,43 @@
+{
+  "log_level": "debug",
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "user": "postgres",
+    "password": "postgres",
+    "database": "application",
+    "tls": false
+  },
+  "token": {
+    "secret": "0000000000000000000000000000000000000000000000000000000000000000",
+    "algorithm": "ed25519"
+  },
+  "service": {
+    "cors_allowed_origins": []
+  },
+  "storage": {
+    "endpoint": "localhost:10900",
+    "public_endpoint": "localhost:10900",
+    "bucket": "cameo",
+    "access_key": "minioadmin",
+    "secret_key": "minioadmin",
+    "region": "us-east-1",
+    "insecure": true
+  },
+  "webrtc": {
+    "udp_port": 50000,
+    "public_ips": ["127.0.0.1"],
+    "ice_servers": [
+      { "urls": ["stun:stun.l.google.com:19302"] }
+    ]
+  },
+  "recording": {
+    "dir": "./recordings",
+    "ffmpeg_path": "ffmpeg",
+    "concurrency": 2
+  },
+  "otp": {
+    "fake_code": "000000",
+    "allow_fake": true
+  }
+}

@@ -1,0 +1,35 @@
+{{/* gotype: github.com/neko-sc/ent/entc/gen.Type */}}
+{{ define "query/additional/limited_count" }}
+{{ $builder := $.QueryName }}
+{{ $receiver := $.QueryReceiver }}
+
+// LimitedCount counts matching rows, stopping at limit.
+func ({{ $receiver }} *{{ $builder }}) LimitedCount(ctx context.Context, limit int) (int, error) {
+	if limit <= 0 {
+		return 0, nil
+	}
+	clone := {{ $receiver }}.Clone()
+	clone.ctx.Limit = nil
+	selector := clone.sqlQuery(ctx).SelectExpr(sql.Raw("1")).Limit(limit)
+	query, args := selector.New().Select(sql.Count("*")).FromExpr(sql.ExprFunc(func(builder *sql.Builder) {
+		builder.Wrap(func(builder *sql.Builder) {
+			builder.Join(selector)
+		}).WriteString(" AS ").Ident("limited_count")
+	})).Query()
+	rows, err := {{ $receiver }}.driver.Query(dialect.WithStatement(ctx, &dialect.Statement{
+		Kind: dialect.StatementRead,
+		Tables: []string{ {{ $.Package }}.Table },
+	}), query, args)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	var count int
+	if rows.Next() {
+		if err := rows.Scan(&count); err != nil {
+			return 0, err
+		}
+	}
+	return count, rows.Err()
+}
+{{ end }}
