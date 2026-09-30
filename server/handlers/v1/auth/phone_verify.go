@@ -93,10 +93,15 @@ func (h *Handler) PhoneVerify(ctx context.Context, req *PhoneVerifyRequest) (res
 		}
 	}
 
+	status, err := h.purchase.Status(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
 	return &PhoneVerifyResponse{
 		Token:     token,
 		ExpiresAt: expiresAt,
 		IsNew:     isNew,
-		User:      models.FromUser(user, partner),
+		User:      models.FromUser(user, partner, status),
 	}, nil
 }

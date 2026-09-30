@@ -16,8 +16,14 @@ const (
 	Label = "couple"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldUserIDs holds the string denoting the user_ids field in the database.
+	FieldUserIDs = "user_ids"
 	// FieldDisconnectedAt holds the string denoting the disconnected_at field in the database.
 	FieldDisconnectedAt = "disconnected_at"
+	// FieldRestoredAt holds the string denoting the restored_at field in the database.
+	FieldRestoredAt = "restored_at"
+	// FieldRestoreTransactionID holds the string denoting the restore_transaction_id field in the database.
+	FieldRestoreTransactionID = "restore_transaction_id"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeMembers holds the string denoting the members edge name in mutations.
@@ -52,30 +58,39 @@ const (
 )
 
 var (
-	ID             = ent.OrderedColumn[entity.Couple, uuid.UUID]{Table: Table, Name: FieldID}
-	DisconnectedAt = ent.OrderedColumn[entity.Couple, time2.Time]{Table: Table, Name: FieldDisconnectedAt}
-	CreatedAt      = ent.OrderedColumn[entity.Couple, time2.Time]{Table: Table, Name: FieldCreatedAt}
-	Members        = ent.NewRelation[entity.Couple, entity.User, uuid.UUID](EdgeMembers, newMembersStep)
-	Calls          = ent.NewRelation[entity.Couple, entity.Call, uuid.UUID](EdgeCalls, newCallsStep)
-	Photos         = ent.NewRelation[entity.Couple, entity.Photo, uuid.UUID](EdgePhotos, newPhotosStep)
+	ID                   = ent.OrderedColumn[entity.Couple, uuid.UUID]{Table: Table, Name: FieldID}
+	UserIDs              = ent.ArrayColumn[entity.Couple, uuid.UUID]{Table: Table, Name: FieldUserIDs}
+	DisconnectedAt       = ent.OrderedColumn[entity.Couple, time2.Time]{Table: Table, Name: FieldDisconnectedAt}
+	RestoredAt           = ent.OrderedColumn[entity.Couple, time2.Time]{Table: Table, Name: FieldRestoredAt}
+	RestoreTransactionID = ent.StringColumn[entity.Couple, string]{Table: Table, Name: FieldRestoreTransactionID}
+	CreatedAt            = ent.OrderedColumn[entity.Couple, time2.Time]{Table: Table, Name: FieldCreatedAt}
+	Members              = ent.NewRelation[entity.Couple, entity.User, uuid.UUID](EdgeMembers, newMembersStep)
+	Calls                = ent.NewRelation[entity.Couple, entity.Call, uuid.UUID](EdgeCalls, newCallsStep)
+	Photos               = ent.NewRelation[entity.Couple, entity.Photo, uuid.UUID](EdgePhotos, newPhotosStep)
 )
 
 // Alias returns the columns of the couples table under a different table alias.
 func Alias(name string) AliasedTable {
 	return AliasedTable{
-		TableAlias:     name,
-		ID:             ent.OrderedColumn[entity.Couple, uuid.UUID]{Table: name, Name: FieldID},
-		DisconnectedAt: ent.OrderedColumn[entity.Couple, time2.Time]{Table: name, Name: FieldDisconnectedAt},
-		CreatedAt:      ent.OrderedColumn[entity.Couple, time2.Time]{Table: name, Name: FieldCreatedAt},
+		TableAlias:           name,
+		ID:                   ent.OrderedColumn[entity.Couple, uuid.UUID]{Table: name, Name: FieldID},
+		UserIDs:              ent.ArrayColumn[entity.Couple, uuid.UUID]{Table: name, Name: FieldUserIDs},
+		DisconnectedAt:       ent.OrderedColumn[entity.Couple, time2.Time]{Table: name, Name: FieldDisconnectedAt},
+		RestoredAt:           ent.OrderedColumn[entity.Couple, time2.Time]{Table: name, Name: FieldRestoredAt},
+		RestoreTransactionID: ent.StringColumn[entity.Couple, string]{Table: name, Name: FieldRestoreTransactionID},
+		CreatedAt:            ent.OrderedColumn[entity.Couple, time2.Time]{Table: name, Name: FieldCreatedAt},
 	}
 }
 
 // AliasedTable holds typed columns qualified by TableAlias.
 type AliasedTable struct {
-	TableAlias     string
-	ID             ent.OrderedColumn[entity.Couple, uuid.UUID]
-	DisconnectedAt ent.OrderedColumn[entity.Couple, time2.Time]
-	CreatedAt      ent.OrderedColumn[entity.Couple, time2.Time]
+	TableAlias           string
+	ID                   ent.OrderedColumn[entity.Couple, uuid.UUID]
+	UserIDs              ent.ArrayColumn[entity.Couple, uuid.UUID]
+	DisconnectedAt       ent.OrderedColumn[entity.Couple, time2.Time]
+	RestoredAt           ent.OrderedColumn[entity.Couple, time2.Time]
+	RestoreTransactionID ent.StringColumn[entity.Couple, string]
+	CreatedAt            ent.OrderedColumn[entity.Couple, time2.Time]
 }
 
 // And joins predicates with AND.
@@ -96,7 +111,10 @@ func Not(predicate ent.Predicate[entity.Couple]) ent.Predicate[entity.Couple] {
 // Columns holds all SQL columns for couple fields.
 var Columns = []string{
 	FieldID,
+	FieldUserIDs,
 	FieldDisconnectedAt,
+	FieldRestoredAt,
+	FieldRestoreTransactionID,
 	FieldCreatedAt,
 }
 
@@ -111,6 +129,8 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultUserIDs holds the default value on creation for the "user_ids" field.
+	DefaultUserIDs []uuid.UUID
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time2.Time
 	// DefaultID holds the default value on creation for the "id" field.

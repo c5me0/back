@@ -4,6 +4,7 @@ package ent
 
 import (
 	"cameo/internal/ent/call"
+	"cameo/internal/ent/couple"
 	"cameo/internal/ent/entity"
 	"cameo/internal/ent/photo"
 	"context"
@@ -65,6 +66,8 @@ func (b *PhotoUpdate) SetExpr[T any](column ent.ColumnOf[entity.Photo, T], value
 	case photo.FieldTakenAt:
 
 	case photo.FieldFavoritedBy:
+
+	case photo.FieldCoupleID:
 
 	case photo.FieldCallID:
 
@@ -240,8 +243,16 @@ func (b *PhotoUpdate) check() error {
 		return &ValidationError{Name: "favorited_by", err: errors.New(`ent: field "Photo.favorited_by" is not nullable`)}
 	}
 
+	if b.mutation.patch.CoupleID.IsNull() {
+		return &ValidationError{Name: "couple_id", err: errors.New(`ent: field "Photo.couple_id" is not nullable`)}
+	}
+
 	if b.mutation.patch.UpdatedAt.IsNull() {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: field "Photo.updated_at" is not nullable`)}
+	}
+
+	if b.mutation.patch.CoupleID.IsNull() {
+		return &ValidationError{Name: "couple", err: errors.New(`ent: clearing required edge "Photo.couple"`)}
 	}
 
 	return nil
@@ -309,6 +320,40 @@ func (_u *PhotoUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.patch.UpdatedAt.Get(); ok {
 		_spec.SetField(photo.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.patch.CoupleID.IsNull() || _u.mutation.patch.clearedEdges[photo.EdgeCouple] {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   photo.CoupleTable,
+			Columns: []string{photo.CoupleColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(couple.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.patch.coupleIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   photo.CoupleTable,
+			Columns: []string{photo.CoupleColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(couple.FieldID, field.TypeUUID),
+			},
+		}
+		seen := make(map[uuid.UUID]struct{}, len(nodes))
+		for _, k := range nodes {
+			if _, exists := seen[k]; exists {
+				continue
+			}
+			seen[k] = struct{}{}
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _u.mutation.patch.CallID.IsNull() || _u.mutation.patch.clearedEdges[photo.EdgeCall] {
 		edge := &sqlgraph.EdgeSpec{
@@ -410,6 +455,8 @@ func (b *PhotoUpdateOne) SetExpr[T any](column ent.ColumnOf[entity.Photo, T], va
 	case photo.FieldTakenAt:
 
 	case photo.FieldFavoritedBy:
+
+	case photo.FieldCoupleID:
 
 	case photo.FieldCallID:
 
@@ -586,8 +633,16 @@ func (b *PhotoUpdateOne) check() error {
 		return &ValidationError{Name: "favorited_by", err: errors.New(`ent: field "Photo.favorited_by" is not nullable`)}
 	}
 
+	if b.mutation.patch.CoupleID.IsNull() {
+		return &ValidationError{Name: "couple_id", err: errors.New(`ent: field "Photo.couple_id" is not nullable`)}
+	}
+
 	if b.mutation.patch.UpdatedAt.IsNull() {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: field "Photo.updated_at" is not nullable`)}
+	}
+
+	if b.mutation.patch.CoupleID.IsNull() {
+		return &ValidationError{Name: "couple", err: errors.New(`ent: clearing required edge "Photo.couple"`)}
 	}
 
 	return nil
@@ -672,6 +727,40 @@ func (_u *PhotoUpdateOne) sqlSave(ctx context.Context) (_node *Photo, err error)
 	}
 	if value, ok := _u.mutation.patch.UpdatedAt.Get(); ok {
 		_spec.SetField(photo.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.patch.CoupleID.IsNull() || _u.mutation.patch.clearedEdges[photo.EdgeCouple] {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   photo.CoupleTable,
+			Columns: []string{photo.CoupleColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(couple.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.patch.coupleIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   photo.CoupleTable,
+			Columns: []string{photo.CoupleColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(couple.FieldID, field.TypeUUID),
+			},
+		}
+		seen := make(map[uuid.UUID]struct{}, len(nodes))
+		for _, k := range nodes {
+			if _, exists := seen[k]; exists {
+				continue
+			}
+			seen[k] = struct{}{}
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _u.mutation.patch.CallID.IsNull() || _u.mutation.patch.clearedEdges[photo.EdgeCall] {
 		edge := &sqlgraph.EdgeSpec{

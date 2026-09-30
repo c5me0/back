@@ -72,8 +72,12 @@ func init() {
 	callhighlight.DefaultID = callhighlightDescID.Default.(func() uuid.UUID)
 	coupleFields := schema.Couple{}.Fields()
 	_ = coupleFields
+	// coupleDescUserIDs is the schema descriptor for user_ids field.
+	coupleDescUserIDs := coupleFields[1].Descriptor()
+	// couple.DefaultUserIDs holds the default value on creation for the user_ids field.
+	couple.DefaultUserIDs = coupleDescUserIDs.Default.([]uuid.UUID)
 	// coupleDescCreatedAt is the schema descriptor for created_at field.
-	coupleDescCreatedAt := coupleFields[2].Descriptor()
+	coupleDescCreatedAt := coupleFields[5].Descriptor()
 	// couple.DefaultCreatedAt holds the default value on creation for the created_at field.
 	couple.DefaultCreatedAt = coupleDescCreatedAt.Default.(func() time2.Time)
 	// coupleDescID is the schema descriptor for id field.
@@ -213,12 +217,16 @@ func init() {
 	userDescHighlightAlert := userFields[5].Descriptor()
 	// user.DefaultHighlightAlert holds the default value on creation for the highlight_alert field.
 	user.DefaultHighlightAlert = userDescHighlightAlert.Default.(bool)
+	// userDescRestoreTransactionIDs is the schema descriptor for restore_transaction_ids field.
+	userDescRestoreTransactionIDs := userFields[7].Descriptor()
+	// user.DefaultRestoreTransactionIDs holds the default value on creation for the restore_transaction_ids field.
+	user.DefaultRestoreTransactionIDs = userDescRestoreTransactionIDs.Default.([]string)
 	// userDescCreatedAt is the schema descriptor for created_at field.
-	userDescCreatedAt := userFields[7].Descriptor()
+	userDescCreatedAt := userFields[10].Descriptor()
 	// user.DefaultCreatedAt holds the default value on creation for the created_at field.
 	user.DefaultCreatedAt = userDescCreatedAt.Default.(func() time2.Time)
 	// userDescUpdatedAt is the schema descriptor for updated_at field.
-	userDescUpdatedAt := userFields[8].Descriptor()
+	userDescUpdatedAt := userFields[11].Descriptor()
 	// user.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	user.DefaultUpdatedAt = userDescUpdatedAt.Default.(func() time2.Time)
 	// user.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

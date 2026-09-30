@@ -35,3 +35,8 @@ const (
 	PhotoUploadIncomplete = "photo:upload_incomplete"
 	PhotoInvalidState     = "photo:invalid_state"
 )
+
+// Purchase errors
+const (
+	PurchaseRequired = "purchase:required"
+)

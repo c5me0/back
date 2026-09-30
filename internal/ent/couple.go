@@ -20,8 +20,14 @@ type Couple struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
+	// UserIDs holds the value of the "user_ids" field.
+	UserIDs []uuid.UUID `json:"user_ids,omitempty"`
 	// DisconnectedAt holds the value of the "disconnected_at" field.
 	DisconnectedAt *time2.Time `json:"disconnected_at,omitempty"`
+	// RestoredAt holds the value of the "restored_at" field.
+	RestoredAt *time2.Time `json:"restored_at,omitempty"`
+	// RestoreTransactionID holds the value of the "restore_transaction_id" field.
+	RestoreTransactionID *string `json:"restore_transaction_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time2.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -106,7 +112,11 @@ func (*Couple) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case couple.FieldDisconnectedAt, couple.FieldCreatedAt:
+		case couple.FieldUserIDs:
+			values[i] = new(*[]uuid.UUID)
+		case couple.FieldRestoreTransactionID:
+			values[i] = new(*string)
+		case couple.FieldDisconnectedAt, couple.FieldRestoredAt, couple.FieldCreatedAt:
 			values[i] = new(*time2.Time)
 		case couple.FieldID:
 			values[i] = new(uuid.UUID)
@@ -131,12 +141,33 @@ func (_m *Couple) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				_m.ID = *value
 			}
+		case couple.FieldUserIDs:
+
+			if value, ok := values[i].(**[]uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field user_ids", values[i])
+			} else if value != nil && *value != nil {
+				_m.UserIDs = **value
+			}
 		case couple.FieldDisconnectedAt:
 
 			if value, ok := values[i].(**time2.Time); !ok {
 				return fmt.Errorf("unexpected type %T for field disconnected_at", values[i])
 			} else if value != nil && *value != nil {
 				_m.DisconnectedAt = *value
+			}
+		case couple.FieldRestoredAt:
+
+			if value, ok := values[i].(**time2.Time); !ok {
+				return fmt.Errorf("unexpected type %T for field restored_at", values[i])
+			} else if value != nil && *value != nil {
+				_m.RestoredAt = *value
+			}
+		case couple.FieldRestoreTransactionID:
+
+			if value, ok := values[i].(**string); !ok {
+				return fmt.Errorf("unexpected type %T for field restore_transaction_id", values[i])
+			} else if value != nil && *value != nil {
+				_m.RestoreTransactionID = *value
 			}
 		case couple.FieldCreatedAt:
 
@@ -188,9 +219,22 @@ func (_m *Couple) String() string {
 	var builder strings.Builder
 	builder.WriteString("Couple(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
+	builder.WriteString("user_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.UserIDs))
+	builder.WriteString(", ")
 	if v := _m.DisconnectedAt; v != nil {
 		builder.WriteString("disconnected_at=")
 		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.RestoredAt; v != nil {
+		builder.WriteString("restored_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.RestoreTransactionID; v != nil {
+		builder.WriteString("restore_transaction_id=")
+		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")

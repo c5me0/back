@@ -42,6 +42,7 @@ func (s *Server) route() http.Handler {
 
 	r.Route("/v1", func(v1 chi.Router) {
 		s.routeAuth(v1)
+		s.routeWebhook(v1)
 
 		v1.Group(func(authenticated chi.Router) {
 			authenticated.Use(s.session.Middleware)
@@ -49,8 +50,13 @@ func (s *Server) route() http.Handler {
 			s.routeAccount(authenticated)
 			s.routeCouple(authenticated)
 			s.routeDevice(authenticated)
-			s.routePhoto(authenticated)
-			s.routeCall(authenticated)
+
+			authenticated.Group(func(premium chi.Router) {
+				premium.Use(s.purchase.Middleware)
+
+				s.routePhoto(premium)
+				s.routeCall(premium)
+			})
 		})
 	})
 

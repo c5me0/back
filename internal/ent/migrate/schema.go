@@ -118,7 +118,10 @@ var (
 	// CouplesColumns holds the columns for the "couples" table.
 	CouplesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
+		{Name: "user_ids", Type: field.TypeArray, Default: "{}", SchemaType: map[string]string{"postgres": "uuid[]", "sqlite3": "json"}},
 		{Name: "disconnected_at", Type: field.TypeTime, Nullable: true},
+		{Name: "restored_at", Type: field.TypeTime, Nullable: true},
+		{Name: "restore_transaction_id", Type: field.TypeString, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 	}
 	// CouplesTable holds the schema information for the "couples" table.
@@ -126,6 +129,13 @@ var (
 		Name:       "couples",
 		Columns:    CouplesColumns,
 		PrimaryKey: []*schema.Column{CouplesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_couple_restore_transaction",
+				Unique:  true,
+				Columns: []*schema.Column{CouplesColumns[4]},
+			},
+		},
 	}
 	// DevicesColumns holds the columns for the "devices" table.
 	DevicesColumns = []*schema.Column{
@@ -269,6 +279,9 @@ var (
 		{Name: "pairing_code", Type: field.TypeString},
 		{Name: "call_alert", Type: field.TypeBool, Default: true},
 		{Name: "highlight_alert", Type: field.TypeBool, Default: true},
+		{Name: "premium_until", Type: field.TypeTime, Nullable: true},
+		{Name: "restore_transaction_ids", Type: field.TypeArray, Default: "{}", SchemaType: map[string]string{"postgres": "text[]", "sqlite3": "json"}},
+		{Name: "purchases_synced_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "couple_id", Type: field.TypeUUID, Nullable: true},
@@ -281,7 +294,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "users_couples_members",
-				Columns:    []*schema.Column{UsersColumns[8]},
+				Columns:    []*schema.Column{UsersColumns[11]},
 				RefColumns: []*schema.Column{CouplesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

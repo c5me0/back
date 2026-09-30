@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Server) routeAuth(r chi.Router) {
-	h := auth.NewHandler(s.db, s.session, s.otp)
+	h := auth.NewHandler(s.db, s.session, s.otp, s.purchase)
 
 	r.With(middleware.RateLimitByIP(5, time.Minute), middleware.RateLimitByPhone(3, 10*time.Minute)).
 		Post("/auth/phone/start", ro.HandleIn(h.PhoneStart))

@@ -34,7 +34,7 @@ func (Photo) Fields() []ent.Field {
 		field.Time("taken_at").Optional().Nillable(),
 		field.Array[[]uuid.UUID]("favorited_by").Default([]uuid.UUID{}),
 
-		field.UUID[uuid.UUID]("couple_id").Immutable(),
+		field.UUID[uuid.UUID]("couple_id"),
 		field.UUID[uuid.UUID]("uploader_id").Immutable(),
 		field.UUID[uuid.UUID]("call_id").Optional().Nillable(),
 
@@ -49,7 +49,7 @@ func (Photo) Edges() []ent.Edge {
 		edge.From("couple", Couple.Type).
 			Ref("photos").
 			Field("couple_id").
-			Unique().Required().Immutable(),
+			Unique().Required(),
 		edge.From("uploader", User.Type).
 			Ref("photos").
 			Field("uploader_id").

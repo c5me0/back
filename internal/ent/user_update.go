@@ -65,6 +65,12 @@ func (b *UserUpdate) SetExpr[T any](column ent.ColumnOf[entity.User, T], value e
 
 	case user.FieldHighlightAlert:
 
+	case user.FieldPremiumUntil:
+
+	case user.FieldRestoreTransactionIDs:
+
+	case user.FieldPurchasesSyncedAt:
+
 	case user.FieldCoupleID:
 
 	case user.FieldUpdatedAt:
@@ -227,6 +233,10 @@ func (b *UserUpdate) check() error {
 		return &ValidationError{Name: "highlight_alert", err: errors.New(`ent: field "User.highlight_alert" is not nullable`)}
 	}
 
+	if b.mutation.patch.RestoreTransactionIDs.IsNull() {
+		return &ValidationError{Name: "restore_transaction_ids", err: errors.New(`ent: field "User.restore_transaction_ids" is not nullable`)}
+	}
+
 	if b.mutation.patch.UpdatedAt.IsNull() {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: field "User.updated_at" is not nullable`)}
 	}
@@ -266,6 +276,21 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.patch.HighlightAlert.Get(); ok {
 		_spec.SetField(user.FieldHighlightAlert, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.patch.PremiumUntil.Get(); ok {
+		_spec.SetField(user.FieldPremiumUntil, field.TypeTime, value)
+	}
+	if _u.mutation.patch.PremiumUntil.IsNull() {
+		_spec.ClearField(user.FieldPremiumUntil, field.TypeTime)
+	}
+	if value, ok := _u.mutation.patch.RestoreTransactionIDs.Get(); ok {
+		_spec.SetField(user.FieldRestoreTransactionIDs, field.TypeArray, value)
+	}
+	if value, ok := _u.mutation.patch.PurchasesSyncedAt.Get(); ok {
+		_spec.SetField(user.FieldPurchasesSyncedAt, field.TypeTime, value)
+	}
+	if _u.mutation.patch.PurchasesSyncedAt.IsNull() {
+		_spec.ClearField(user.FieldPurchasesSyncedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.patch.UpdatedAt.Get(); ok {
 		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
@@ -695,6 +720,12 @@ func (b *UserUpdateOne) SetExpr[T any](column ent.ColumnOf[entity.User, T], valu
 
 	case user.FieldHighlightAlert:
 
+	case user.FieldPremiumUntil:
+
+	case user.FieldRestoreTransactionIDs:
+
+	case user.FieldPurchasesSyncedAt:
+
 	case user.FieldCoupleID:
 
 	case user.FieldUpdatedAt:
@@ -858,6 +889,10 @@ func (b *UserUpdateOne) check() error {
 		return &ValidationError{Name: "highlight_alert", err: errors.New(`ent: field "User.highlight_alert" is not nullable`)}
 	}
 
+	if b.mutation.patch.RestoreTransactionIDs.IsNull() {
+		return &ValidationError{Name: "restore_transaction_ids", err: errors.New(`ent: field "User.restore_transaction_ids" is not nullable`)}
+	}
+
 	if b.mutation.patch.UpdatedAt.IsNull() {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: field "User.updated_at" is not nullable`)}
 	}
@@ -914,6 +949,21 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.patch.HighlightAlert.Get(); ok {
 		_spec.SetField(user.FieldHighlightAlert, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.patch.PremiumUntil.Get(); ok {
+		_spec.SetField(user.FieldPremiumUntil, field.TypeTime, value)
+	}
+	if _u.mutation.patch.PremiumUntil.IsNull() {
+		_spec.ClearField(user.FieldPremiumUntil, field.TypeTime)
+	}
+	if value, ok := _u.mutation.patch.RestoreTransactionIDs.Get(); ok {
+		_spec.SetField(user.FieldRestoreTransactionIDs, field.TypeArray, value)
+	}
+	if value, ok := _u.mutation.patch.PurchasesSyncedAt.Get(); ok {
+		_spec.SetField(user.FieldPurchasesSyncedAt, field.TypeTime, value)
+	}
+	if _u.mutation.patch.PurchasesSyncedAt.IsNull() {
+		_spec.ClearField(user.FieldPurchasesSyncedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.patch.UpdatedAt.Get(); ok {
 		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)

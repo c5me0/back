@@ -462,12 +462,12 @@ func (_q *CoupleQuery) WithPhotos(opts ...func(*PhotoQuery)) *CoupleQuery {
 // Example:
 //
 //	var v []struct {
-//		DisconnectedAt time2.Time `json:"disconnected_at,omitempty"`
+//		UserIDs []uuid.UUID `json:"user_ids,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.Couple.Query().
-//		GroupBy(couple.DisconnectedAt).
+//		GroupBy(couple.UserIDs).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (_q *CoupleQuery) GroupBy(columns ...ent.EntityColumn[entity.Couple]) *CoupleGroupBy {
@@ -483,11 +483,11 @@ func (_q *CoupleQuery) GroupBy(columns ...ent.EntityColumn[entity.Couple]) *Coup
 // Example:
 //
 //	var v []struct {
-//		DisconnectedAt time2.Time `json:"disconnected_at,omitempty"`
+//		UserIDs []uuid.UUID `json:"user_ids,omitempty"`
 //	}
 //
 //	client.Couple.Query().
-//		Select(couple.DisconnectedAt).
+//		Select(couple.UserIDs).
 //		Scan(ctx, &v)
 func (_q *CoupleQuery) Select(selections ...ent.Selection) *CoupleSelect {
 	return &CoupleSelect{query: _q, selections: append([]ent.Selection(nil), selections...)}
@@ -787,6 +787,9 @@ func (_q *CoupleQuery) sqlCount(ctx context.Context) (int, error) {
 
 func (_q *CoupleQuery) querySpec() *sqlgraph.QuerySpec {
 	_spec := sqlgraph.NewQuerySpec(couple.Table, couple.Columns, sqlgraph.NewFieldSpec(couple.FieldID, field.TypeUUID))
+	_spec.Node.Unique = [][]string{
+		{"restore_transaction_id"},
+	}
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

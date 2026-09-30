@@ -60,7 +60,13 @@ func (b *CoupleCreate) SetExpr[T any](column ent.ColumnOf[entity.Couple, T], val
 
 	case couple.FieldID:
 
+	case couple.FieldUserIDs:
+
 	case couple.FieldDisconnectedAt:
+
+	case couple.FieldRestoredAt:
+
+	case couple.FieldRestoreTransactionID:
 
 	case couple.FieldCreatedAt:
 
@@ -137,6 +143,11 @@ func (b *CoupleCreate) defaults() error {
 		b.mutation.insert.ID = ent.Some(couple.DefaultID())
 	}
 
+	if b.mutation.insert.UserIDs.IsUnset() && b.mutation.insert.expressions[couple.FieldUserIDs] == nil {
+
+		b.mutation.insert.UserIDs = ent.Some(couple.DefaultUserIDs)
+	}
+
 	if b.mutation.insert.CreatedAt.IsUnset() && b.mutation.insert.expressions[couple.FieldCreatedAt] == nil {
 		if couple.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized couple.DefaultCreatedAt")
@@ -154,6 +165,10 @@ func (b *CoupleCreate) check() error {
 
 	if b.mutation.insert.ID.IsNull() {
 		return &ValidationError{Name: "id", err: errors.New(`ent: field "Couple.id" is not nullable`)}
+	}
+
+	if b.mutation.insert.UserIDs.IsNull() {
+		return &ValidationError{Name: "user_ids", err: errors.New(`ent: field "Couple.user_ids" is not nullable`)}
 	}
 
 	if b.mutation.insert.CreatedAt.IsNull() {
@@ -194,11 +209,32 @@ func (_c *CoupleCreate) createSpec() (*Couple, *sqlgraph.CreateSpec, error) {
 		_spec.ID.Value = &value
 	}
 
+	if value, ok := _c.mutation.insert.UserIDs.Get(); ok {
+		_spec.SetField(couple.FieldUserIDs, field.TypeArray, value)
+	}
+	if _c.mutation.insert.UserIDs.IsNull() {
+		_spec.SetField(couple.FieldUserIDs, field.TypeArray, nil)
+	}
+
 	if value, ok := _c.mutation.insert.DisconnectedAt.Get(); ok {
 		_spec.SetField(couple.FieldDisconnectedAt, field.TypeTime, value)
 	}
 	if _c.mutation.insert.DisconnectedAt.IsNull() {
 		_spec.SetField(couple.FieldDisconnectedAt, field.TypeTime, nil)
+	}
+
+	if value, ok := _c.mutation.insert.RestoredAt.Get(); ok {
+		_spec.SetField(couple.FieldRestoredAt, field.TypeTime, value)
+	}
+	if _c.mutation.insert.RestoredAt.IsNull() {
+		_spec.SetField(couple.FieldRestoredAt, field.TypeTime, nil)
+	}
+
+	if value, ok := _c.mutation.insert.RestoreTransactionID.Get(); ok {
+		_spec.SetField(couple.FieldRestoreTransactionID, field.TypeString, value)
+	}
+	if _c.mutation.insert.RestoreTransactionID.IsNull() {
+		_spec.SetField(couple.FieldRestoreTransactionID, field.TypeString, nil)
 	}
 
 	if value, ok := _c.mutation.insert.CreatedAt.Get(); ok {
@@ -344,6 +380,9 @@ func (u *CoupleUpsertOne) UpdateNewValues() *CoupleUpsertOne {
 			case couple.FieldID:
 				update.SetIgnore(column)
 
+			case couple.FieldUserIDs:
+				update.SetIgnore(column)
+
 			case couple.FieldCreatedAt:
 				update.SetIgnore(column)
 
@@ -420,6 +459,12 @@ func (u *CoupleUpsert) Set[T any](column ent.ColumnOf[entity.Couple, T], value T
 	case couple.FieldDisconnectedAt:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
+	case couple.FieldRestoredAt:
+		u.UpdateSet.Set(column.Ref().Name, value)
+
+	case couple.FieldRestoreTransactionID:
+		u.UpdateSet.Set(column.Ref().Name, value)
+
 	default:
 		u.UpdateSet.AddError(&ValidationError{Name: column.Ref().Name, err: fmt.Errorf("ent: field %q of Couple is not settable", column.Ref().Name)})
 	}
@@ -432,6 +477,12 @@ func (u *CoupleUpsert) SetExpr[T any](column ent.ColumnOf[entity.Couple, T], val
 	case couple.FieldDisconnectedAt:
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
+	case couple.FieldRestoredAt:
+		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
+
+	case couple.FieldRestoreTransactionID:
+		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
+
 	default:
 		u.UpdateSet.AddError(&ValidationError{Name: column.Ref().Name, err: fmt.Errorf("ent: field %q of Couple is not settable", column.Ref().Name)})
 	}
@@ -442,6 +493,12 @@ func (u *CoupleUpsert) UpdateNewValue[T any](column ent.ColumnOf[entity.Couple, 
 	switch column.Ref().Name {
 
 	case couple.FieldDisconnectedAt:
+		u.UpdateSet.SetExcluded(column.Ref().Name)
+
+	case couple.FieldRestoredAt:
+		u.UpdateSet.SetExcluded(column.Ref().Name)
+
+	case couple.FieldRestoreTransactionID:
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
 	default:
@@ -463,6 +520,12 @@ func (u *CoupleUpsert) Clear[T any](column ent.ColumnOf[entity.Couple, T]) *Coup
 	switch column.Ref().Name {
 
 	case couple.FieldDisconnectedAt:
+		u.UpdateSet.SetNull(column.Ref().Name)
+
+	case couple.FieldRestoredAt:
+		u.UpdateSet.SetNull(column.Ref().Name)
+
+	case couple.FieldRestoreTransactionID:
 		u.UpdateSet.SetNull(column.Ref().Name)
 
 	default:
@@ -591,6 +654,9 @@ func (u *CoupleUpsertBulk) UpdateNewValues() *CoupleUpsertBulk {
 		for _, column := range update.Columns() {
 			switch column {
 			case couple.FieldID:
+				update.SetIgnore(column)
+
+			case couple.FieldUserIDs:
 				update.SetIgnore(column)
 
 			case couple.FieldCreatedAt:

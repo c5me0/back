@@ -14,6 +14,7 @@ import (
 	"cameo/internal/ent"
 	"cameo/server/services/call"
 	"cameo/server/services/otp"
+	"cameo/server/services/purchase"
 	"cameo/server/services/push"
 	"cameo/server/services/session"
 	"cameo/server/services/storage"
@@ -31,6 +32,8 @@ type Server struct {
 	otp     otp.Provider
 	storage *storage.Service
 	push    *push.Service
+
+	purchase *purchase.Service
 
 	transcript *transcript.Service
 	call       *call.Service
@@ -85,6 +88,9 @@ func (s *Server) init(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create push service: %w", err)
 	}
+
+	s.purchase = purchase.New(s.config, s.db, s.logger)
+	s.logger.Info().Str("component", "purchase").Bool("enabled", s.purchase.Enabled()).Msg("purchase service configured")
 
 	s.transcript = transcript.New(s.db, s.storage, s.push, s.config, s.logger)
 

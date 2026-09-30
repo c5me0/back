@@ -35,6 +35,11 @@ func (h *Handler) Get(ctx context.Context) (*models.Couple, error) {
 		return nil, fmt.Errorf("load partner: %w", err)
 	}
 
-	result := models.FromCouple(couple, partner)
+	restorable, err := restorable(ctx, h.db, couple)
+	if err != nil {
+		return nil, err
+	}
+
+	result := models.FromCouple(couple, partner, restorable)
 	return &result, nil
 }

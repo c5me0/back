@@ -25,6 +25,21 @@ info:
 
     **Request-ID.** Every response carries a `Request-ID` header (UUIDv7) that also appears in server logs.
 
+    **Purchases.** Purchases go through RevenueCat. The SDK's App User ID must be the CAMEO user `id`
+    (configure it right after sign-in; do not call `logOut`). Two products exist: the `premium` entitlement
+    (subscriptions, unlocks the whole app) and the consumable `restore` product (one data restore).
+    Both are couple-scoped: a couple is premium when either member has an active `premium` entitlement, and
+    restore credits are the unused `restore` purchases of either member. After any purchase or restore in the
+    SDK, and on app launch, call `POST /v1/me/purchases/sync`. Gate features on `GET /v1/me` `premium.active`,
+    not on the SDK's CustomerInfo (the partner's CustomerInfo has no entitlement).
+
+    Every route under `/v1/calls` (including the `/signal` WebSocket) and `/v1/photos`, and
+    `POST /v1/couple/restore`, require a premium couple: `404 couple:not_connected` without a couple,
+    otherwise `402 purchase:required` with `meta.required: premium`. `/v1/auth/*`, `GET`/`PATCH /v1/me`,
+    `POST /v1/me/purchases/sync`, `/v1/devices*`, `GET`/`POST`/`DELETE /v1/couple` and `POST /v1/couple/code`
+    never require premium. Without the server's `revenuecat` config section (local development) everyone is
+    premium, restore is free, sync is a no-op and the webhook is not served.
+
     **Live calls.** The WebSocket signaling protocol, call state machine and push payloads are documented in
     [signaling.md](./signaling.md).
 servers:
@@ -47,6 +62,8 @@ tags:
     description: Calls, call history and live call actions
   - name: photo
     description: The couple's shared photo library
+  - name: webhook
+    description: Inbound webhooks from third-party services
 
 paths:
   /livez:
@@ -230,11 +247,40 @@ paths:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
         - { code: internal_error, status: 500, when: Database failed }
 
+  /v1/me/purchases/sync:
+    post:
+      tags: [account]
+      operationId: syncPurchases
+      summary: Re-read the user's purchases from RevenueCat
+      description: |
+        Fetches the caller's subscriber record from RevenueCat (`GET /v1/subscribers/{app_user_id}`) and
+        updates the stored `premium` entitlement and `restore` purchases. Call it after a purchase or restore
+        completes in the SDK and on app launch. Without the `revenuecat` config section this is a no-op.
+        Never requires premium.
+      responses:
+        "200":
+          description: The updated user
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: internal_error, status: 500, when: RevenueCat or database failed }
+
   /v1/couple:
     get:
       tags: [couple]
       operationId: getCouple
       summary: Get the authenticated user's couple
+      description: Includes `restorable`, the data waiting in previous couples of the same pair.
       responses:
         "200":
           description: The couple
@@ -261,7 +307,9 @@ paths:
       summary: Connect with the owner of a pairing code
       description: |
         Pairs the authenticated user with the user owning `code`. On success both users receive new pairing
-        codes and the partner receives a `partner_connected` alert push.
+        codes and the partner receives a `partner_connected` alert push. When the same two users were paired
+        before, `restorable` counts the calls and photos left in their previous couples; offer the `restore`
+        purchase and `POST /v1/couple/restore`.
 
         Rate limit: 10 requests per minute per user.
       requestBody:
@@ -346,6 +394,43 @@ paths:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
         - { code: internal_error, status: 500, when: Database failed or every generated code collided }
 
+  /v1/couple/restore:
+    post:
+      tags: [couple]
+      operationId: restoreCouple
+      summary: Move data of previous couples of the same pair into the current couple
+      description: |
+        Moves every call and photo of previous (dissolved) couples of the same two users into the current
+        couple and consumes one restore credit (`User.restore_credits`, shared by the couple). The partner
+        receives a `data_restored` alert push with `couple_id`, `calls` and `photos`.
+
+        Idempotent: a couple that was already restored (`Couple.restored_at` set) returns zeros and consumes
+        nothing. Offer the `restore` purchase when `Couple.restorable` is non-zero, then call
+        `POST /v1/me/purchases/sync` before this endpoint. Requires a premium couple.
+      responses:
+        "200":
+          description: Number of moved calls and photos
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Restorable"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium), or data would move and the couple has no restore credit (meta.required: restore)" }
+        - { code: "couple:not_connected", status: 404, when: The user has no partner }
+        - { code: internal_error, status: 500, when: Database failed }
+
   /v1/devices:
     post:
       tags: [device]
@@ -425,6 +510,8 @@ paths:
                 $ref: "#/components/schemas/CreateCallResponse"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -433,6 +520,7 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: "call:busy", status: 409, when: The couple already has a ringing or active call }
         - { code: internal_error, status: 500, when: Database failed }
@@ -459,6 +547,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -466,6 +556,7 @@ paths:
       x-error-codes:
         - { code: invalid_request, status: 400, when: Malformed cursor, limit outside 1-100, or favorite not a boolean }
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: internal_error, status: 500, when: Database failed }
 
@@ -492,12 +583,15 @@ paths:
                 $ref: "#/components/schemas/CallDetail"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: internal_error, status: 500, when: Database or storage failed }
@@ -511,6 +605,8 @@ paths:
           $ref: "#/components/responses/NoContent"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -519,6 +615,7 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: "call:invalid_state", status: 409, when: The call is ringing or active }
@@ -537,6 +634,8 @@ paths:
           $ref: "#/components/responses/NoContent"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -547,6 +646,7 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: forbidden, status: 403, when: The user is the caller }
         - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
@@ -568,6 +668,8 @@ paths:
           $ref: "#/components/responses/NoContent"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -576,6 +678,7 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: "call:invalid_state", status: 409, when: The call already finished }
@@ -611,6 +714,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -620,6 +725,7 @@ paths:
       x-error-codes:
         - { code: invalid_request, status: 400, when: offset_seconds missing or negative }
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: "call:invalid_state", status: 409, when: The call is not active }
@@ -638,12 +744,15 @@ paths:
           $ref: "#/components/responses/NoContent"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: internal_error, status: 500, when: Database failed }
@@ -657,12 +766,15 @@ paths:
           $ref: "#/components/responses/NoContent"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: internal_error, status: 500, when: Database failed }
@@ -698,6 +810,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -707,6 +821,7 @@ paths:
       x-error-codes:
         - { code: invalid_request, status: 400, when: photo_id missing or not a UUID }
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed call ID, no such call, or no such photo in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: "call:invalid_state", status: 409, when: The call is not active }
@@ -748,6 +863,8 @@ paths:
               $ref: "#/components/headers/RequestID"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -756,6 +873,7 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed ID or no such call in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: "call:invalid_state", status: 409, when: The call is not ringing or active, or is not live in this process }
@@ -790,6 +908,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -797,6 +917,7 @@ paths:
       x-error-codes:
         - { code: invalid_request, status: 400, when: Unsupported content_type, sizes out of range, or width/height below 1 }
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: internal_error, status: 500, when: Database or storage failed }
 
@@ -823,6 +944,8 @@ paths:
                 $ref: "#/components/schemas/Photo"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -833,6 +956,7 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: forbidden, status: 403, when: The user is not the uploader }
         - { code: not_found, status: 404, when: Malformed ID or no such photo in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
@@ -871,6 +995,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -878,6 +1004,7 @@ paths:
       x-error-codes:
         - { code: invalid_request, status: 400, when: Malformed cursor or call_id, limit outside 1-100, or favorite not a boolean }
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: internal_error, status: 500, when: Database or storage failed }
 
@@ -900,12 +1027,15 @@ paths:
                 $ref: "#/components/schemas/Photo"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed ID, pending photo, or no such photo in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: internal_error, status: 500, when: Database or storage failed }
@@ -919,12 +1049,15 @@ paths:
           $ref: "#/components/responses/NoContent"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed ID or no such photo in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: internal_error, status: 500, when: Database failed }
@@ -942,12 +1075,15 @@ paths:
           $ref: "#/components/responses/NoContent"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed ID, pending photo, or no such photo in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: internal_error, status: 500, when: Database failed }
@@ -961,15 +1097,67 @@ paths:
           $ref: "#/components/responses/NoContent"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
       x-error-codes:
         - { code: unauthenticated, status: 401, when: Token missing, invalid or expired }
+        - { code: "purchase:required", status: 402, when: "The couple is not premium (meta.required: premium)" }
         - { code: not_found, status: 404, when: Malformed ID, pending photo, or no such photo in the couple }
         - { code: "couple:not_connected", status: 404, when: The user has no partner }
         - { code: internal_error, status: 500, when: Database failed }
+
+  /v1/webhooks/revenuecat:
+    post:
+      tags: [webhook]
+      operationId: revenueCatWebhook
+      summary: RevenueCat webhook receiver
+      description: |
+        Served only when `revenuecat.webhook_secret` is configured (otherwise `404 not_found`).
+
+        Authenticated by the `X-RevenueCat-Webhook-Signature: t=<unix>,v1=<hex>` header, where `v1` is the
+        hex HMAC-SHA256 of `"<t>.<raw body>"` keyed with `webhook_secret`; `t` must be within 5 minutes of
+        the server clock. `TEST` events return 200 immediately. Any other event makes the server re-read the
+        affected users (`app_user_id`, `original_app_user_id`, `aliases`, `transferred_from`,
+        `transferred_to`) from RevenueCat. A 500 makes RevenueCat retry.
+      security: []
+      parameters:
+        - name: X-RevenueCat-Webhook-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: "^t=\\d+,v1=[0-9a-f]+$"
+          examples:
+            signature:
+              value: t=1790000000,v1=5d41402abc4b2a76b9719d911017c592ae2f5e3b8d1c6f0e8a3b7c9d2e4f6a8b
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevenueCatWebhook"
+      responses:
+        "200":
+          description: Processed. Body is `{}`.
+          headers:
+            Request-ID:
+              $ref: "#/components/headers/RequestID"
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-error-codes:
+        - { code: unauthenticated, status: 401, when: Signature missing, malformed, wrong or outside the 5-minute tolerance }
+        - { code: internal_error, status: 500, when: RevenueCat or database failed while syncing }
 
 components:
   securitySchemes:
@@ -1076,6 +1264,20 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+    PaymentRequired:
+      description: "`purchase:required`: the couple lacks the purchase named in `meta.required` (`premium` or `restore`)"
+      headers:
+        Request-ID:
+          $ref: "#/components/headers/RequestID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: "purchase:required"
+            message: purchase required
+            meta:
+              required: premium
     NotFound:
       description: "`not_found` or a domain code mapped to 404 (see `x-error-codes`)"
       headers:
@@ -1143,7 +1345,7 @@ components:
           description: Human-readable detail for logs; do not show verbatim to users.
         meta:
           type: object
-          description: "Optional details: `fields` (validation messages by field) for `invalid_request`, `request_id` for `internal_error`."
+          description: "Optional details: `fields` (validation messages by field) for `invalid_request`, `request_id` for `internal_error`, `required` (`premium` or `restore`) for `purchase:required`."
           properties:
             fields:
               type: object
@@ -1152,6 +1354,9 @@ components:
             request_id:
               type: string
               format: uuid
+            required:
+              type: string
+              enum: [premium, restore]
           additionalProperties: true
 
     ErrorCode:
@@ -1161,7 +1366,7 @@ components:
         not_found 404, rate_limit 429, auth:invalid_code 400, couple:not_connected 404,
         couple:code_not_found 404, couple:self 400, couple:already_connected 409,
         couple:partner_unavailable 409, call:busy 409, call:invalid_state 409, photo:upload_incomplete 409,
-        photo:invalid_state 409.
+        photo:invalid_state 409, purchase:required 402.
       enum:
         - internal_error
         - invalid_request
@@ -1179,6 +1384,7 @@ components:
         - "call:invalid_state"
         - "photo:upload_incomplete"
         - "photo:invalid_state"
+        - "purchase:required"
 
     CallStatus:
       type: string
@@ -1249,7 +1455,7 @@ components:
 
     User:
       type: object
-      required: [id, phone, display_name, pairing_code, call_alert, highlight_alert, partner, created_at]
+      required: [id, phone, display_name, pairing_code, call_alert, highlight_alert, partner, premium, restore_credits, created_at]
       properties:
         id:
           type: string
@@ -1275,9 +1481,31 @@ components:
           oneOf:
             - $ref: "#/components/schemas/Partner"
             - type: "null"
+        premium:
+          $ref: "#/components/schemas/Premium"
+        restore_credits:
+          type: integer
+          minimum: 0
+          description: Unused `restore` purchases of the user and the partner combined. Consumed by `POST /v1/couple/restore`.
         created_at:
           type: string
           format: date-time
+
+    Premium:
+      type: object
+      description: Couple-scoped premium state. Gate client features on `active`, not on the RevenueCat SDK CustomerInfo.
+      required: [active, until, source]
+      properties:
+        active:
+          type: boolean
+        until:
+          type: [string, "null"]
+          format: date-time
+          description: Expiry of the entitlement that grants premium. Null when not premium or the entitlement does not expire.
+        source:
+          type: string
+          enum: [self, partner, none]
+          description: Whose `premium` entitlement grants it. `none` when not premium.
 
     CouplePartner:
       type: object
@@ -1293,7 +1521,7 @@ components:
 
     Couple:
       type: object
-      required: [id, partner, connected_at]
+      required: [id, partner, connected_at, restorable, restored_at]
       properties:
         id:
           type: string
@@ -1303,6 +1531,26 @@ components:
         connected_at:
           type: string
           format: date-time
+        restorable:
+          $ref: "#/components/schemas/Restorable"
+        restored_at:
+          type: [string, "null"]
+          format: date-time
+          description: When `POST /v1/couple/restore` moved data into this couple. Null until then.
+
+    Restorable:
+      type: object
+      description: |
+        In `Couple`: calls and photos waiting in previous couples of the same two users; offer the `restore`
+        purchase when non-zero. As the `POST /v1/couple/restore` response: the counts that were moved.
+      required: [calls, photos]
+      properties:
+        calls:
+          type: integer
+          minimum: 0
+        photos:
+          type: integer
+          minimum: 0
 
     Call:
       type: object
@@ -1625,3 +1873,37 @@ components:
           type: string
           format: date-time
           description: Expiry of both upload URLs (15 minutes).
+
+    RevenueCatWebhook:
+      type: object
+      description: RevenueCat webhook envelope. Only the fields the server reads are listed; others are ignored.
+      required: [api_version, event]
+      properties:
+        api_version:
+          type: string
+          examples: ["1.0"]
+        event:
+          type: object
+          required: [type]
+          properties:
+            type:
+              type: string
+              description: RevenueCat event type (`INITIAL_PURCHASE`, `RENEWAL`, `EXPIRATION`, `NON_RENEWING_PURCHASE`, `TRANSFER`, `TEST`, ...).
+            app_user_id:
+              type: string
+            original_app_user_id:
+              type: string
+            aliases:
+              type: array
+              items:
+                type: string
+            transferred_from:
+              type: array
+              items:
+                type: string
+            transferred_to:
+              type: array
+              items:
+                type: string
+          additionalProperties: true
+      additionalProperties: true

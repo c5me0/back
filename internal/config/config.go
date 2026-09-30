@@ -31,10 +31,11 @@ type Config struct {
 	WebRTC    *WebRTC    `json:"webrtc"`
 	Recording *Recording `json:"recording"`
 
-	Twilio *Twilio `json:"twilio" config:"optional"`
-	OTP    *OTP    `json:"otp" config:"optional"`
-	OpenAI *OpenAI `json:"openai" config:"optional"`
-	Push   *Push   `json:"push" config:"optional"`
+	Twilio     *Twilio     `json:"twilio" config:"optional"`
+	OTP        *OTP        `json:"otp" config:"optional"`
+	OpenAI     *OpenAI     `json:"openai" config:"optional"`
+	Push       *Push       `json:"push" config:"optional"`
+	RevenueCat *RevenueCat `json:"revenuecat" config:"optional"`
 }
 
 // Level returns the parsed zerolog level from LogLevel, defaulting to InfoLevel

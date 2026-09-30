@@ -31,6 +31,12 @@ type User struct {
 	CallAlert bool `json:"call_alert,omitempty"`
 	// HighlightAlert holds the value of the "highlight_alert" field.
 	HighlightAlert bool `json:"highlight_alert,omitempty"`
+	// PremiumUntil holds the value of the "premium_until" field.
+	PremiumUntil *time2.Time `json:"premium_until,omitempty"`
+	// RestoreTransactionIDs holds the value of the "restore_transaction_ids" field.
+	RestoreTransactionIDs []string `json:"restore_transaction_ids,omitempty"`
+	// PurchasesSyncedAt holds the value of the "purchases_synced_at" field.
+	PurchasesSyncedAt *time2.Time `json:"purchases_synced_at,omitempty"`
 	// CoupleID holds the value of the "couple_id" field.
 	CoupleID *uuid.UUID `json:"couple_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -183,11 +189,13 @@ func (*User) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case user.FieldCoupleID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case user.FieldRestoreTransactionIDs:
+			values[i] = new(*[]string)
 		case user.FieldCallAlert, user.FieldHighlightAlert:
 			values[i] = new(*bool)
 		case user.FieldPhone, user.FieldDisplayName, user.FieldPairingCode:
 			values[i] = new(*string)
-		case user.FieldCreatedAt, user.FieldUpdatedAt:
+		case user.FieldPremiumUntil, user.FieldPurchasesSyncedAt, user.FieldCreatedAt, user.FieldUpdatedAt:
 			values[i] = new(*time2.Time)
 		case user.FieldID:
 			values[i] = new(uuid.UUID)
@@ -246,6 +254,27 @@ func (_m *User) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field highlight_alert", values[i])
 			} else if value != nil && *value != nil {
 				_m.HighlightAlert = **value
+			}
+		case user.FieldPremiumUntil:
+
+			if value, ok := values[i].(**time2.Time); !ok {
+				return fmt.Errorf("unexpected type %T for field premium_until", values[i])
+			} else if value != nil && *value != nil {
+				_m.PremiumUntil = *value
+			}
+		case user.FieldRestoreTransactionIDs:
+
+			if value, ok := values[i].(**[]string); !ok {
+				return fmt.Errorf("unexpected type %T for field restore_transaction_ids", values[i])
+			} else if value != nil && *value != nil {
+				_m.RestoreTransactionIDs = **value
+			}
+		case user.FieldPurchasesSyncedAt:
+
+			if value, ok := values[i].(**time2.Time); !ok {
+				return fmt.Errorf("unexpected type %T for field purchases_synced_at", values[i])
+			} else if value != nil && *value != nil {
+				_m.PurchasesSyncedAt = *value
 			}
 		case user.FieldCoupleID:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -347,6 +376,19 @@ func (_m *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("highlight_alert=")
 	builder.WriteString(fmt.Sprintf("%v", _m.HighlightAlert))
+	builder.WriteString(", ")
+	if v := _m.PremiumUntil; v != nil {
+		builder.WriteString("premium_until=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("restore_transaction_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RestoreTransactionIDs))
+	builder.WriteString(", ")
+	if v := _m.PurchasesSyncedAt; v != nil {
+		builder.WriteString("purchases_synced_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	if v := _m.CoupleID; v != nil {
 		builder.WriteString("couple_id=")

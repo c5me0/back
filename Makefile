@@ -7,9 +7,10 @@ generate:
 	go generate ./internal/ent/generate.go
 	go generate ./internal/ent/generate_ddl_linux.go
 
-# Atlas migration from the schema snapshot. Run only when the schema change is final.
+# Atlas migration from the schema snapshot, named by NAME. Run only when the schema change is final.
 migration:
-	cd internal/ent && go generate ./generate_atlas.go
+	@test -n "$(NAME)" || { echo "usage: make migration NAME=<name>"; exit 1; }
+	cd internal/ent && MIGRATION_NAME=$(NAME) go generate ./generate_atlas.go
 
 fmt:
 	golangci-lint fmt ./...

@@ -587,9 +587,6 @@ func (u *CallUpsertOne) UpdateNewValues() *CallUpsertOne {
 			case call.FieldID:
 				update.SetIgnore(column)
 
-			case call.FieldCoupleID:
-				update.SetIgnore(column)
-
 			case call.FieldCallerID:
 				update.SetIgnore(column)
 
@@ -702,6 +699,9 @@ func (u *CallUpsert) Set[T any](column ent.ColumnOf[entity.Call, T], value T) *C
 		}
 		u.UpdateSet.Set(column.Ref().Name, json.RawMessage(encoded))
 
+	case call.FieldCoupleID:
+		u.UpdateSet.Set(column.Ref().Name, value)
+
 	case call.FieldUpdatedAt:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
@@ -741,6 +741,9 @@ func (u *CallUpsert) SetExpr[T any](column ent.ColumnOf[entity.Call, T], value e
 	case call.FieldTranscript:
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
+	case call.FieldCoupleID:
+		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
+
 	case call.FieldUpdatedAt:
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
@@ -778,6 +781,9 @@ func (u *CallUpsert) UpdateNewValue[T any](column ent.ColumnOf[entity.Call, T]) 
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
 	case call.FieldTranscript:
+		u.UpdateSet.SetExcluded(column.Ref().Name)
+
+	case call.FieldCoupleID:
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
 	case call.FieldUpdatedAt:
@@ -951,9 +957,6 @@ func (u *CallUpsertBulk) UpdateNewValues() *CallUpsertBulk {
 		for _, column := range update.Columns() {
 			switch column {
 			case call.FieldID:
-				update.SetIgnore(column)
-
-			case call.FieldCoupleID:
 				update.SetIgnore(column)
 
 			case call.FieldCallerID:

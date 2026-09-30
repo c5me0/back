@@ -73,6 +73,12 @@ func (b *UserCreate) SetExpr[T any](column ent.ColumnOf[entity.User, T], value e
 
 	case user.FieldHighlightAlert:
 
+	case user.FieldPremiumUntil:
+
+	case user.FieldRestoreTransactionIDs:
+
+	case user.FieldPurchasesSyncedAt:
+
 	case user.FieldCoupleID:
 
 	case user.FieldCreatedAt:
@@ -167,6 +173,11 @@ func (b *UserCreate) defaults() error {
 		b.mutation.insert.HighlightAlert = ent.Some(user.DefaultHighlightAlert)
 	}
 
+	if b.mutation.insert.RestoreTransactionIDs.IsUnset() && b.mutation.insert.expressions[user.FieldRestoreTransactionIDs] == nil {
+
+		b.mutation.insert.RestoreTransactionIDs = ent.Some(user.DefaultRestoreTransactionIDs)
+	}
+
 	if b.mutation.insert.CreatedAt.IsUnset() && b.mutation.insert.expressions[user.FieldCreatedAt] == nil {
 		if user.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized user.DefaultCreatedAt")
@@ -231,6 +242,10 @@ func (b *UserCreate) check() error {
 
 	if b.mutation.insert.HighlightAlert.IsNull() {
 		return &ValidationError{Name: "highlight_alert", err: errors.New(`ent: field "User.highlight_alert" is not nullable`)}
+	}
+
+	if b.mutation.insert.RestoreTransactionIDs.IsNull() {
+		return &ValidationError{Name: "restore_transaction_ids", err: errors.New(`ent: field "User.restore_transaction_ids" is not nullable`)}
 	}
 
 	if b.mutation.insert.CreatedAt.IsNull() {
@@ -304,6 +319,27 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec, error) {
 	}
 	if _c.mutation.insert.HighlightAlert.IsNull() {
 		_spec.SetField(user.FieldHighlightAlert, field.TypeBool, nil)
+	}
+
+	if value, ok := _c.mutation.insert.PremiumUntil.Get(); ok {
+		_spec.SetField(user.FieldPremiumUntil, field.TypeTime, value)
+	}
+	if _c.mutation.insert.PremiumUntil.IsNull() {
+		_spec.SetField(user.FieldPremiumUntil, field.TypeTime, nil)
+	}
+
+	if value, ok := _c.mutation.insert.RestoreTransactionIDs.Get(); ok {
+		_spec.SetField(user.FieldRestoreTransactionIDs, field.TypeArray, value)
+	}
+	if _c.mutation.insert.RestoreTransactionIDs.IsNull() {
+		_spec.SetField(user.FieldRestoreTransactionIDs, field.TypeArray, nil)
+	}
+
+	if value, ok := _c.mutation.insert.PurchasesSyncedAt.Get(); ok {
+		_spec.SetField(user.FieldPurchasesSyncedAt, field.TypeTime, value)
+	}
+	if _c.mutation.insert.PurchasesSyncedAt.IsNull() {
+		_spec.SetField(user.FieldPurchasesSyncedAt, field.TypeTime, nil)
 	}
 
 	if value, ok := _c.mutation.insert.CreatedAt.Get(); ok {
@@ -632,6 +668,15 @@ func (u *UserUpsert) Set[T any](column ent.ColumnOf[entity.User, T], value T) *U
 	case user.FieldHighlightAlert:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
+	case user.FieldPremiumUntil:
+		u.UpdateSet.Set(column.Ref().Name, value)
+
+	case user.FieldRestoreTransactionIDs:
+		u.UpdateSet.Set(column.Ref().Name, value)
+
+	case user.FieldPurchasesSyncedAt:
+		u.UpdateSet.Set(column.Ref().Name, value)
+
 	case user.FieldCoupleID:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
@@ -657,6 +702,15 @@ func (u *UserUpsert) SetExpr[T any](column ent.ColumnOf[entity.User, T], value e
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
 	case user.FieldHighlightAlert:
+		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
+
+	case user.FieldPremiumUntil:
+		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
+
+	case user.FieldRestoreTransactionIDs:
+		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
+
+	case user.FieldPurchasesSyncedAt:
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
 	case user.FieldCoupleID:
@@ -686,6 +740,15 @@ func (u *UserUpsert) UpdateNewValue[T any](column ent.ColumnOf[entity.User, T]) 
 	case user.FieldHighlightAlert:
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
+	case user.FieldPremiumUntil:
+		u.UpdateSet.SetExcluded(column.Ref().Name)
+
+	case user.FieldRestoreTransactionIDs:
+		u.UpdateSet.SetExcluded(column.Ref().Name)
+
+	case user.FieldPurchasesSyncedAt:
+		u.UpdateSet.SetExcluded(column.Ref().Name)
+
 	case user.FieldCoupleID:
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
@@ -711,6 +774,12 @@ func (u *UserUpsert) Clear[T any](column ent.ColumnOf[entity.User, T]) *UserUpse
 	switch column.Ref().Name {
 
 	case user.FieldDisplayName:
+		u.UpdateSet.SetNull(column.Ref().Name)
+
+	case user.FieldPremiumUntil:
+		u.UpdateSet.SetNull(column.Ref().Name)
+
+	case user.FieldPurchasesSyncedAt:
 		u.UpdateSet.SetNull(column.Ref().Name)
 
 	case user.FieldCoupleID:

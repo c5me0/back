@@ -26,6 +26,12 @@ const (
 	FieldCallAlert = "call_alert"
 	// FieldHighlightAlert holds the string denoting the highlight_alert field in the database.
 	FieldHighlightAlert = "highlight_alert"
+	// FieldPremiumUntil holds the string denoting the premium_until field in the database.
+	FieldPremiumUntil = "premium_until"
+	// FieldRestoreTransactionIDs holds the string denoting the restore_transaction_ids field in the database.
+	FieldRestoreTransactionIDs = "restore_transaction_ids"
+	// FieldPurchasesSyncedAt holds the string denoting the purchases_synced_at field in the database.
+	FieldPurchasesSyncedAt = "purchases_synced_at"
 	// FieldCoupleID holds the string denoting the couple_id field in the database.
 	FieldCoupleID = "couple_id"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -100,52 +106,61 @@ const (
 )
 
 var (
-	ID             = ent.OrderedColumn[entity.User, uuid.UUID]{Table: Table, Name: FieldID}
-	Phone          = ent.StringColumn[entity.User, string]{Table: Table, Name: FieldPhone}
-	DisplayName    = ent.StringColumn[entity.User, string]{Table: Table, Name: FieldDisplayName}
-	PairingCode    = ent.StringColumn[entity.User, string]{Table: Table, Name: FieldPairingCode}
-	CallAlert      = ent.Column[entity.User, bool]{Table: Table, Name: FieldCallAlert}
-	HighlightAlert = ent.Column[entity.User, bool]{Table: Table, Name: FieldHighlightAlert}
-	CoupleID       = ent.OrderedColumn[entity.User, uuid.UUID]{Table: Table, Name: FieldCoupleID}
-	CreatedAt      = ent.OrderedColumn[entity.User, time2.Time]{Table: Table, Name: FieldCreatedAt}
-	UpdatedAt      = ent.OrderedColumn[entity.User, time2.Time]{Table: Table, Name: FieldUpdatedAt}
-	Sessions       = ent.NewRelation[entity.User, entity.Session, uuid.UUID](EdgeSessions, newSessionsStep)
-	Devices        = ent.NewRelation[entity.User, entity.Device, uuid.UUID](EdgeDevices, newDevicesStep)
-	OutgoingCalls  = ent.NewRelation[entity.User, entity.Call, uuid.UUID](EdgeOutgoingCalls, newOutgoingCallsStep)
-	IncomingCalls  = ent.NewRelation[entity.User, entity.Call, uuid.UUID](EdgeIncomingCalls, newIncomingCallsStep)
-	CallHighlights = ent.NewRelation[entity.User, entity.CallHighlight, uuid.UUID](EdgeCallHighlights, newCallHighlightsStep)
-	Photos         = ent.NewRelation[entity.User, entity.Photo, uuid.UUID](EdgePhotos, newPhotosStep)
-	Couple         = ent.NewUniqueRelation[entity.User, entity.Couple, uuid.UUID](EdgeCouple, newCoupleStep)
+	ID                    = ent.OrderedColumn[entity.User, uuid.UUID]{Table: Table, Name: FieldID}
+	Phone                 = ent.StringColumn[entity.User, string]{Table: Table, Name: FieldPhone}
+	DisplayName           = ent.StringColumn[entity.User, string]{Table: Table, Name: FieldDisplayName}
+	PairingCode           = ent.StringColumn[entity.User, string]{Table: Table, Name: FieldPairingCode}
+	CallAlert             = ent.Column[entity.User, bool]{Table: Table, Name: FieldCallAlert}
+	HighlightAlert        = ent.Column[entity.User, bool]{Table: Table, Name: FieldHighlightAlert}
+	PremiumUntil          = ent.OrderedColumn[entity.User, time2.Time]{Table: Table, Name: FieldPremiumUntil}
+	RestoreTransactionIDs = ent.ArrayColumn[entity.User, string]{Table: Table, Name: FieldRestoreTransactionIDs}
+	PurchasesSyncedAt     = ent.OrderedColumn[entity.User, time2.Time]{Table: Table, Name: FieldPurchasesSyncedAt}
+	CoupleID              = ent.OrderedColumn[entity.User, uuid.UUID]{Table: Table, Name: FieldCoupleID}
+	CreatedAt             = ent.OrderedColumn[entity.User, time2.Time]{Table: Table, Name: FieldCreatedAt}
+	UpdatedAt             = ent.OrderedColumn[entity.User, time2.Time]{Table: Table, Name: FieldUpdatedAt}
+	Sessions              = ent.NewRelation[entity.User, entity.Session, uuid.UUID](EdgeSessions, newSessionsStep)
+	Devices               = ent.NewRelation[entity.User, entity.Device, uuid.UUID](EdgeDevices, newDevicesStep)
+	OutgoingCalls         = ent.NewRelation[entity.User, entity.Call, uuid.UUID](EdgeOutgoingCalls, newOutgoingCallsStep)
+	IncomingCalls         = ent.NewRelation[entity.User, entity.Call, uuid.UUID](EdgeIncomingCalls, newIncomingCallsStep)
+	CallHighlights        = ent.NewRelation[entity.User, entity.CallHighlight, uuid.UUID](EdgeCallHighlights, newCallHighlightsStep)
+	Photos                = ent.NewRelation[entity.User, entity.Photo, uuid.UUID](EdgePhotos, newPhotosStep)
+	Couple                = ent.NewUniqueRelation[entity.User, entity.Couple, uuid.UUID](EdgeCouple, newCoupleStep)
 )
 
 // Alias returns the columns of the users table under a different table alias.
 func Alias(name string) AliasedTable {
 	return AliasedTable{
-		TableAlias:     name,
-		ID:             ent.OrderedColumn[entity.User, uuid.UUID]{Table: name, Name: FieldID},
-		Phone:          ent.StringColumn[entity.User, string]{Table: name, Name: FieldPhone},
-		DisplayName:    ent.StringColumn[entity.User, string]{Table: name, Name: FieldDisplayName},
-		PairingCode:    ent.StringColumn[entity.User, string]{Table: name, Name: FieldPairingCode},
-		CallAlert:      ent.Column[entity.User, bool]{Table: name, Name: FieldCallAlert},
-		HighlightAlert: ent.Column[entity.User, bool]{Table: name, Name: FieldHighlightAlert},
-		CoupleID:       ent.OrderedColumn[entity.User, uuid.UUID]{Table: name, Name: FieldCoupleID},
-		CreatedAt:      ent.OrderedColumn[entity.User, time2.Time]{Table: name, Name: FieldCreatedAt},
-		UpdatedAt:      ent.OrderedColumn[entity.User, time2.Time]{Table: name, Name: FieldUpdatedAt},
+		TableAlias:            name,
+		ID:                    ent.OrderedColumn[entity.User, uuid.UUID]{Table: name, Name: FieldID},
+		Phone:                 ent.StringColumn[entity.User, string]{Table: name, Name: FieldPhone},
+		DisplayName:           ent.StringColumn[entity.User, string]{Table: name, Name: FieldDisplayName},
+		PairingCode:           ent.StringColumn[entity.User, string]{Table: name, Name: FieldPairingCode},
+		CallAlert:             ent.Column[entity.User, bool]{Table: name, Name: FieldCallAlert},
+		HighlightAlert:        ent.Column[entity.User, bool]{Table: name, Name: FieldHighlightAlert},
+		PremiumUntil:          ent.OrderedColumn[entity.User, time2.Time]{Table: name, Name: FieldPremiumUntil},
+		RestoreTransactionIDs: ent.ArrayColumn[entity.User, string]{Table: name, Name: FieldRestoreTransactionIDs},
+		PurchasesSyncedAt:     ent.OrderedColumn[entity.User, time2.Time]{Table: name, Name: FieldPurchasesSyncedAt},
+		CoupleID:              ent.OrderedColumn[entity.User, uuid.UUID]{Table: name, Name: FieldCoupleID},
+		CreatedAt:             ent.OrderedColumn[entity.User, time2.Time]{Table: name, Name: FieldCreatedAt},
+		UpdatedAt:             ent.OrderedColumn[entity.User, time2.Time]{Table: name, Name: FieldUpdatedAt},
 	}
 }
 
 // AliasedTable holds typed columns qualified by TableAlias.
 type AliasedTable struct {
-	TableAlias     string
-	ID             ent.OrderedColumn[entity.User, uuid.UUID]
-	Phone          ent.StringColumn[entity.User, string]
-	DisplayName    ent.StringColumn[entity.User, string]
-	PairingCode    ent.StringColumn[entity.User, string]
-	CallAlert      ent.Column[entity.User, bool]
-	HighlightAlert ent.Column[entity.User, bool]
-	CoupleID       ent.OrderedColumn[entity.User, uuid.UUID]
-	CreatedAt      ent.OrderedColumn[entity.User, time2.Time]
-	UpdatedAt      ent.OrderedColumn[entity.User, time2.Time]
+	TableAlias            string
+	ID                    ent.OrderedColumn[entity.User, uuid.UUID]
+	Phone                 ent.StringColumn[entity.User, string]
+	DisplayName           ent.StringColumn[entity.User, string]
+	PairingCode           ent.StringColumn[entity.User, string]
+	CallAlert             ent.Column[entity.User, bool]
+	HighlightAlert        ent.Column[entity.User, bool]
+	PremiumUntil          ent.OrderedColumn[entity.User, time2.Time]
+	RestoreTransactionIDs ent.ArrayColumn[entity.User, string]
+	PurchasesSyncedAt     ent.OrderedColumn[entity.User, time2.Time]
+	CoupleID              ent.OrderedColumn[entity.User, uuid.UUID]
+	CreatedAt             ent.OrderedColumn[entity.User, time2.Time]
+	UpdatedAt             ent.OrderedColumn[entity.User, time2.Time]
 }
 
 // And joins predicates with AND.
@@ -169,6 +184,9 @@ var Columns = []string{
 	FieldPairingCode,
 	FieldCallAlert,
 	FieldHighlightAlert,
+	FieldPremiumUntil,
+	FieldRestoreTransactionIDs,
+	FieldPurchasesSyncedAt,
 	FieldCoupleID,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -193,6 +211,8 @@ var (
 	DefaultCallAlert bool
 	// DefaultHighlightAlert holds the default value on creation for the "highlight_alert" field.
 	DefaultHighlightAlert bool
+	// DefaultRestoreTransactionIDs holds the default value on creation for the "restore_transaction_ids" field.
+	DefaultRestoreTransactionIDs []string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time2.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.

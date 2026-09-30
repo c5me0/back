@@ -50,6 +50,7 @@ type CallPatch struct {
 	EndedAt             ent.Option[time2.Time]             `json:"ended_at,omitzero"`
 	Transcript          ent.Option[[]call2.Segment]        `json:"transcript,omitzero"`
 	TranscriptAppend    []call2.Segment                    `json:"transcript_append,omitzero"`
+	CoupleID            ent.Option[uuid.UUID]              `json:"couple_id,omitzero"`
 	UpdatedAt           ent.Option[time2.Time]             `json:"updated_at,omitzero"`
 	Highlights          ent.RelationPatch[uuid.UUID]       `json:"highlights,omitzero"`
 	Photos              ent.RelationPatch[uuid.UUID]       `json:"photos,omitzero"`
@@ -444,6 +445,16 @@ func (i *CallPatch) set(column string, value any) error {
 		delete(i.expressions, column)
 		return nil
 
+	case call.FieldCoupleID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Call", value, column)}
+		}
+		i.CoupleID = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
 	case call.FieldUpdatedAt:
 		v, ok := value.(time2.Time)
 		if !ok {
@@ -513,6 +524,13 @@ func (i *CallPatch) setExpr(column string, render func(*sql.Builder)) {
 func (i *CallPatch) setEdge(edge string, id any) error {
 	switch edge {
 
+	case call.EdgeCouple:
+		value, ok := id.(uuid.UUID)
+		if !ok {
+			return &ValidationError{Name: edge, err: fmt.Errorf("ent: unexpected ID type %T for edge %q of Call", id, edge)}
+		}
+		return i.set(call.FieldCoupleID, value)
+
 	}
 	return &ValidationError{Name: edge, err: fmt.Errorf("ent: edge %q of Call is not settable", edge)}
 }
@@ -551,6 +569,15 @@ func (i *CallPatch) highlightsIDs() []uuid.UUID {
 
 func (i *CallPatch) photosIDs() []uuid.UUID {
 	return i.Photos.Add
+
+}
+
+func (i *CallPatch) coupleIDs() []uuid.UUID {
+
+	if id, ok := i.CoupleID.Get(); ok {
+		return []uuid.UUID{id}
+	}
+	return nil
 
 }
 
@@ -640,6 +667,10 @@ func (p *CallPatch) clearEdge(edge string) error {
 		p.Photos.Clear = true
 		return nil
 
+	case call.EdgeCouple:
+
+		return &ValidationError{Name: edge, err: fmt.Errorf("ent: edge %q of Call is required", edge)}
+
 	}
 	return &ValidationError{Name: edge, err: fmt.Errorf("ent: edge %q of Call cannot be cleared", edge)}
 }
@@ -706,6 +737,11 @@ func (p *CallPatch) apply(other CallPatch) {
 	}
 
 	p.TranscriptAppend = append(p.TranscriptAppend, other.TranscriptAppend...)
+
+	if other.CoupleID.IsSet() {
+		p.CoupleID = other.CoupleID
+		delete(p.expressions, call.FieldCoupleID)
+	}
 
 	if other.UpdatedAt.IsSet() {
 		p.UpdatedAt = other.UpdatedAt

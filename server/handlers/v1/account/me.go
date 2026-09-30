@@ -17,6 +17,16 @@ func (h *Handler) Me(ctx context.Context) (*models.User, error) {
 		return nil, fmt.Errorf("load user: %w", err)
 	}
 
+	return h.user(ctx, me)
+}
+
+// user builds the response for me with its partner and the couple's purchase status.
+func (h *Handler) user(ctx context.Context, me *ent.User) (*models.User, error) {
+	status, err := h.purchase.Status(ctx, me)
+	if err != nil {
+		return nil, err
+	}
+
 	var partner *ent.User
 	if me.CoupleID != nil {
 		partner, err = h.db.User.Query().
@@ -28,6 +38,6 @@ func (h *Handler) Me(ctx context.Context) (*models.User, error) {
 		}
 	}
 
-	result := models.FromUser(me, partner)
+	result := models.FromUser(me, partner, status)
 	return &result, nil
 }

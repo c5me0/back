@@ -56,6 +56,10 @@ func (b *CoupleUpdate) SetExpr[T any](column ent.ColumnOf[entity.Couple, T], val
 
 	case couple.FieldDisconnectedAt:
 
+	case couple.FieldRestoredAt:
+
+	case couple.FieldRestoreTransactionID:
+
 	default:
 		b.err = &ValidationError{Name: column.Ref().Name, err: fmt.Errorf("ent: field %q of Couple is not settable", column.Ref().Name)}
 		return b
@@ -213,6 +217,18 @@ func (_u *CoupleUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.patch.DisconnectedAt.IsNull() {
 		_spec.ClearField(couple.FieldDisconnectedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.patch.RestoredAt.Get(); ok {
+		_spec.SetField(couple.FieldRestoredAt, field.TypeTime, value)
+	}
+	if _u.mutation.patch.RestoredAt.IsNull() {
+		_spec.ClearField(couple.FieldRestoredAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.patch.RestoreTransactionID.Get(); ok {
+		_spec.SetField(couple.FieldRestoreTransactionID, field.TypeString, value)
+	}
+	if _u.mutation.patch.RestoreTransactionID.IsNull() {
+		_spec.ClearField(couple.FieldRestoreTransactionID, field.TypeString)
 	}
 	if _u.mutation.patch.Members.Clear {
 		edge := &sqlgraph.EdgeSpec{
@@ -434,6 +450,10 @@ func (b *CoupleUpdateOne) SetExpr[T any](column ent.ColumnOf[entity.Couple, T], 
 
 	case couple.FieldDisconnectedAt:
 
+	case couple.FieldRestoredAt:
+
+	case couple.FieldRestoreTransactionID:
+
 	default:
 		b.err = &ValidationError{Name: column.Ref().Name, err: fmt.Errorf("ent: field %q of Couple is not settable", column.Ref().Name)}
 		return b
@@ -609,6 +629,18 @@ func (_u *CoupleUpdateOne) sqlSave(ctx context.Context) (_node *Couple, err erro
 	}
 	if _u.mutation.patch.DisconnectedAt.IsNull() {
 		_spec.ClearField(couple.FieldDisconnectedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.patch.RestoredAt.Get(); ok {
+		_spec.SetField(couple.FieldRestoredAt, field.TypeTime, value)
+	}
+	if _u.mutation.patch.RestoredAt.IsNull() {
+		_spec.ClearField(couple.FieldRestoredAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.patch.RestoreTransactionID.Get(); ok {
+		_spec.SetField(couple.FieldRestoreTransactionID, field.TypeString, value)
+	}
+	if _u.mutation.patch.RestoreTransactionID.IsNull() {
+		_spec.ClearField(couple.FieldRestoreTransactionID, field.TypeString)
 	}
 	if _u.mutation.patch.Members.Clear {
 		edge := &sqlgraph.EdgeSpec{

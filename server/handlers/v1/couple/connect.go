@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
+	"strings"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/google/uuid"
@@ -79,8 +81,12 @@ func (h *Handler) Connect(ctx context.Context, req *ConnectRequest) (*models.Cou
 			return nil, protocol.ErrorResponse{Code: protocol.CouplePartnerUnavailable, Message: "partner is already connected"}
 		}
 
+		// user_ids is sorted so both orders of the same pair are stored identically.
+		userIDs := []uuid.UUID{me.ID, partner.ID}
+		slices.SortFunc(userIDs, func(a, b uuid.UUID) int { return strings.Compare(a.String(), b.String()) })
+
 		// InsertBulk instead of Insert: staticcheck v0.8.0 mis-maps facts of builders with generic methods (SA4023 panic).
-		rows, err := tx.Couple.InsertBulk(ent.CoupleInsert{MemberIDs: []uuid.UUID{me.ID, partner.ID}}).Save(ctx)
+		rows, err := tx.Couple.InsertBulk(ent.CoupleInsert{UserIDs: ent.Some(userIDs), MemberIDs: userIDs}).Save(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("insert couple: %w", err)
 		}
@@ -104,6 +110,11 @@ func (h *Handler) Connect(ctx context.Context, req *ConnectRequest) (*models.Cou
 	//nolint:contextcheck // fire-and-forget
 	h.push.NotifyUser(partner.ID, false, "연결됐어요", body, map[string]any{"type": "partner_connected"})
 
-	result := models.FromCouple(couple, partner)
+	restorable, err := restorable(ctx, h.db, couple)
+	if err != nil {
+		return nil, err
+	}
+
+	result := models.FromCouple(couple, partner, restorable)
 	return &result, nil
 }

@@ -35,7 +35,7 @@ func (Call) Fields() []ent.Field {
 
 		field.JSON[[]call.Segment]("transcript").Optional(),
 
-		field.UUID[uuid.UUID]("couple_id").Immutable(),
+		field.UUID[uuid.UUID]("couple_id"),
 		field.UUID[uuid.UUID]("caller_id").Immutable(),
 		field.UUID[uuid.UUID]("callee_id").Immutable(),
 
@@ -53,7 +53,7 @@ func (Call) Edges() []ent.Edge {
 		edge.From("couple", Couple.Type).
 			Ref("calls").
 			Field("couple_id").
-			Unique().Required().Immutable(),
+			Unique().Required(),
 		edge.From("caller", User.Type).
 			Ref("outgoing_calls").
 			Field("caller_id").

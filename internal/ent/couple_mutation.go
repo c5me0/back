@@ -15,23 +15,28 @@ import (
 
 // CoupleInsert is the write representation of a Couple creation.
 type CoupleInsert struct {
-	ID             ent.Option[uuid.UUID]  `json:"id,omitzero"`
-	DisconnectedAt ent.Option[time2.Time] `json:"disconnected_at,omitzero"`
-	CreatedAt      ent.Option[time2.Time] `json:"created_at,omitzero"`
-	MemberIDs      []uuid.UUID            `json:"member_ids,omitzero"`
-	CallIDs        []uuid.UUID            `json:"call_ids,omitzero"`
-	PhotoIDs       []uuid.UUID            `json:"photo_ids,omitzero"`
-	expressions    map[string]func(*sql.Builder)
+	ID                   ent.Option[uuid.UUID]   `json:"id,omitzero"`
+	UserIDs              ent.Option[[]uuid.UUID] `json:"user_ids,omitzero"`
+	DisconnectedAt       ent.Option[time2.Time]  `json:"disconnected_at,omitzero"`
+	RestoredAt           ent.Option[time2.Time]  `json:"restored_at,omitzero"`
+	RestoreTransactionID ent.Option[string]      `json:"restore_transaction_id,omitzero"`
+	CreatedAt            ent.Option[time2.Time]  `json:"created_at,omitzero"`
+	MemberIDs            []uuid.UUID             `json:"member_ids,omitzero"`
+	CallIDs              []uuid.UUID             `json:"call_ids,omitzero"`
+	PhotoIDs             []uuid.UUID             `json:"photo_ids,omitzero"`
+	expressions          map[string]func(*sql.Builder)
 }
 
 // CouplePatch is the write representation of a Couple update.
 type CouplePatch struct {
-	DisconnectedAt ent.Option[time2.Time]       `json:"disconnected_at,omitzero"`
-	Members        ent.RelationPatch[uuid.UUID] `json:"members,omitzero"`
-	Calls          ent.RelationPatch[uuid.UUID] `json:"calls,omitzero"`
-	Photos         ent.RelationPatch[uuid.UUID] `json:"photos,omitzero"`
-	expressions    map[string]func(*sql.Builder)
-	clearedEdges   map[string]bool
+	DisconnectedAt       ent.Option[time2.Time]       `json:"disconnected_at,omitzero"`
+	RestoredAt           ent.Option[time2.Time]       `json:"restored_at,omitzero"`
+	RestoreTransactionID ent.Option[string]           `json:"restore_transaction_id,omitzero"`
+	Members              ent.RelationPatch[uuid.UUID] `json:"members,omitzero"`
+	Calls                ent.RelationPatch[uuid.UUID] `json:"calls,omitzero"`
+	Photos               ent.RelationPatch[uuid.UUID] `json:"photos,omitzero"`
+	expressions          map[string]func(*sql.Builder)
+	clearedEdges         map[string]bool
 }
 
 func (i *CoupleInsert) set(column string, value any) error {
@@ -47,12 +52,42 @@ func (i *CoupleInsert) set(column string, value any) error {
 		delete(i.expressions, column)
 		return nil
 
+	case couple.FieldUserIDs:
+		v, ok := value.([]uuid.UUID)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Couple", value, column)}
+		}
+		i.UserIDs = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
 	case couple.FieldDisconnectedAt:
 		v, ok := value.(time2.Time)
 		if !ok {
 			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Couple", value, column)}
 		}
 		i.DisconnectedAt = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
+	case couple.FieldRestoredAt:
+		v, ok := value.(time2.Time)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Couple", value, column)}
+		}
+		i.RestoredAt = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
+	case couple.FieldRestoreTransactionID:
+		v, ok := value.(string)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Couple", value, column)}
+		}
+		i.RestoreTransactionID = ent.Some(v)
 
 		delete(i.expressions, column)
 		return nil
@@ -76,6 +111,18 @@ func (i *CoupleInsert) setNull(column string) error {
 
 	case couple.FieldDisconnectedAt:
 		i.DisconnectedAt = ent.Null[time2.Time]()
+
+		delete(i.expressions, column)
+		return nil
+
+	case couple.FieldRestoredAt:
+		i.RestoredAt = ent.Null[time2.Time]()
+
+		delete(i.expressions, column)
+		return nil
+
+	case couple.FieldRestoreTransactionID:
+		i.RestoreTransactionID = ent.Null[string]()
 
 		delete(i.expressions, column)
 		return nil
@@ -160,6 +207,26 @@ func (i *CouplePatch) set(column string, value any) error {
 		delete(i.expressions, column)
 		return nil
 
+	case couple.FieldRestoredAt:
+		v, ok := value.(time2.Time)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Couple", value, column)}
+		}
+		i.RestoredAt = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
+	case couple.FieldRestoreTransactionID:
+		v, ok := value.(string)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Couple", value, column)}
+		}
+		i.RestoreTransactionID = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
 	}
 	return &ValidationError{Name: column, err: fmt.Errorf("ent: field %q of Couple is not settable", column)}
 }
@@ -169,6 +236,18 @@ func (i *CouplePatch) setNull(column string) error {
 
 	case couple.FieldDisconnectedAt:
 		i.DisconnectedAt = ent.Null[time2.Time]()
+
+		delete(i.expressions, column)
+		return nil
+
+	case couple.FieldRestoredAt:
+		i.RestoredAt = ent.Null[time2.Time]()
+
+		delete(i.expressions, column)
+		return nil
+
+	case couple.FieldRestoreTransactionID:
+		i.RestoreTransactionID = ent.Null[string]()
 
 		delete(i.expressions, column)
 		return nil
@@ -321,6 +400,16 @@ func (p *CouplePatch) apply(other CouplePatch) {
 	if other.DisconnectedAt.IsSet() {
 		p.DisconnectedAt = other.DisconnectedAt
 		delete(p.expressions, couple.FieldDisconnectedAt)
+	}
+
+	if other.RestoredAt.IsSet() {
+		p.RestoredAt = other.RestoredAt
+		delete(p.expressions, couple.FieldRestoredAt)
+	}
+
+	if other.RestoreTransactionID.IsSet() {
+		p.RestoreTransactionID = other.RestoreTransactionID
+		delete(p.expressions, couple.FieldRestoreTransactionID)
 	}
 
 	p.Members.Add = append(p.Members.Add, other.Members.Add...)

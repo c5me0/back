@@ -16,6 +16,7 @@
 | 후처리 | ffmpeg(트랙 인코딩/믹스), S3 업로드, OpenAI 전사(whisper-1) + Responses API 제목/요약 |
 | 저장소 | S3 호환 스토리지(minio-go), presigned PUT/GET |
 | 푸시 | APNs 토큰 인증(sideshow/apns2), 미설정 시 로그 전용 |
+| 결제 | RevenueCat(REST v1 + 웹훅), 미설정 시 모두 프리미엄 |
 
 ## 준비물
 
@@ -91,6 +92,10 @@ curl -i localhost:18080/readyz
 | `openai.language` | 선택 | | 전사 언어 힌트(ISO-639-1, 예: `ko`) |
 | `push.apns.key_path` / `key_id` / `team_id` / `bundle_id` | 섹션 선택, 있으면 모두 필수 | | APNs .p8 키 경로와 식별자. VoIP topic은 `<bundle_id>.voip`. 없으면 푸시를 로그로만 남김 |
 | `push.apns.production` | 선택 | `false` | `true`면 운영 APNs, 아니면 sandbox |
+| `revenuecat.api_key` | 섹션 선택, 있으면 필수 | | RevenueCat REST v1 `GET /v1/subscribers/{app_user_id}`에 Bearer로 쓰는 키(public SDK 키 또는 secret 키). 섹션이 없으면 결제 비활성: 모두 프리미엄, 복원 무료, sync는 no-op, 웹훅 미제공 |
+| `revenuecat.webhook_secret` | 선택 | | RevenueCat 웹훅 서명 secret. 비어 있으면 `POST /v1/webhooks/revenuecat`을 제공하지 않음 |
+| `revenuecat.premium_entitlement` | 선택 | `premium` | 프리미엄 entitlement 식별자 |
+| `revenuecat.restore_product_id` | 선택 | `restore` | 데이터 복원 소모성 상품 ID |
 
 ## Make 타깃
 
@@ -100,7 +105,7 @@ curl -i localhost:18080/readyz
 | `make run` | 로컬 설정으로 서버 실행(`:18080`) |
 | `make build` | `bin/cameo` 빌드 |
 | `make generate` | ent 코드 생성 + DDL 스냅샷(`internal/ent/migrate/schema.sql`) 갱신 |
-| `make migration` | 스냅샷과 `extra.sql`로부터 Atlas 마이그레이션 생성(Docker로 dev DB를 띄움) |
+| `make migration NAME=<이름>` | 스냅샷과 `extra.sql`로부터 `<타임스탬프>_<이름>.sql` Atlas 마이그레이션 생성(Docker로 dev DB를 띄움) |
 | `make fmt` / `make lint` | golangci-lint 포맷/린트 |
 | `make prod` | 운영 호스트에서 루트 `compose.yml`로 빌드 후 기동(`VERSION`은 git short hash) |
 | `make prod-logs` | 운영 `cameo` 컨테이너 로그 |
@@ -109,7 +114,7 @@ curl -i localhost:18080/readyz
 
 1. `internal/ent/schema/*.go`(enum은 `internal/ent/schema_types/`)를 수정한다.
 2. `make generate`로 ent 코드와 `schema.sql` 스냅샷을 갱신하고 빌드를 확인한다. 스키마를 다듬는 동안에는 이 단계만 반복한다.
-3. 스키마가 확정되면 `make migration`으로 `internal/ent/migrate/migrations/`에 SQL과 `atlas.sum`을 만든다. ent가 표현하지 못하는 DDL은 `internal/ent/migrate/extra.sql`에 둔다.
+3. 스키마가 확정되면 `make migration NAME=<이름>`으로 `internal/ent/migrate/migrations/`에 SQL과 `atlas.sum`을 만든다. ent가 표현하지 못하는 DDL은 `internal/ent/migrate/extra.sql`에 둔다.
 4. 생성된 마이그레이션을 커밋한다. 서버는 다음 기동 때 자동으로 적용한다.
 
 ## Docker
@@ -177,6 +182,58 @@ make prod-logs
 - Twilio Verify(실제 SMS): `"twilio": { "account_sid": "...", "auth_token": "...", "verify_service_sid": "..." }`. 설정 후 `otp.allow_fake`를 `false`로 바꾼다.
 - OpenAI(전사, 제목/요약): `"openai": { "api_key": "...", "language": "ko" }`. 없으면 녹음만 업로드한다.
 - APNs 푸시: `.p8` 키를 `config/`에 두고 `"push": { "apns": { "key_path": "/config/AuthKey_XXXX.p8", "key_id": "...", "team_id": "...", "bundle_id": "...", "production": true } }`.
+- RevenueCat(결제): 아래 [RevenueCat](#revenuecat) 참고. 없으면 모두 프리미엄으로 취급한다.
+
+## RevenueCat
+
+결제는 RevenueCat으로 처리한다. 상품은 둘이다.
+
+- entitlement `premium`: 구독 상품들에 붙인다. 앱 전체(통화, 사진)를 연다.
+- 소모성 상품 `restore`: 이전 커플 데이터 복원 1회.
+
+둘 다 커플 단위다. 둘 중 한 명이라도 `premium`이 활성이면 커플이 프리미엄이고, 복원 크레딧은 두 사람의 미사용 `restore` 구매 합계다.
+
+### 대시보드
+
+1. 프로젝트를 만들고 iOS 앱을 추가한다. In-App Purchase Key(.p8)를 등록한다.
+2. entitlement `premium`을 만들고 구독 상품들을 붙인다.
+3. 소모성 상품 `restore`를 만든다(entitlement에 붙이지 않는다).
+4. offering을 만들어 구독 패키지와 `restore`를 넣는다.
+5. 개발 중에는 Test Store 키로도 동작한다.
+
+### 웹훅
+
+- URL: `https://<api host>/v1/webhooks/revenuecat`
+- 서명 secret을 `revenuecat.webhook_secret`에 넣는다. 서버는 `X-RevenueCat-Webhook-Signature: t=<unix>,v1=<hex>`(`HMAC-SHA256(secret, "<t>.<raw body>")`, 허용 오차 5분)를 검증한다.
+- 환경(sandbox/production) 필터는 필요에 맞게 고른다.
+- 이벤트를 받으면 관련 사용자(`app_user_id`, `original_app_user_id`, `aliases`, `transferred_from/to`)를 RevenueCat에서 다시 읽는다. 실패하면 500을 돌려 RevenueCat이 재시도한다.
+
+### 설정
+
+```json
+"revenuecat": {
+  "api_key": "<REVENUECAT_API_KEY>",
+  "webhook_secret": "<REVENUECAT_WEBHOOK_SECRET>",
+  "premium_entitlement": "premium",
+  "restore_product_id": "restore"
+}
+```
+
+섹션이 없으면 결제가 꺼진다(로컬 개발용): 모두 프리미엄, 복원 무료, `POST /v1/me/purchases/sync`는 아무것도 하지 않고 웹훅은 제공하지 않는다.
+
+### 클라이언트 책임
+
+- SDK의 App User ID는 CAMEO 사용자 `id`다. 로그인 직후 그 ID로 SDK를 설정하고 `logOut`은 호출하지 않는다.
+- SDK에서 구매나 복원이 끝나면, 그리고 앱 실행 시 `POST /v1/me/purchases/sync`를 호출한다(갱신된 `User` 반환).
+- 기능 게이팅은 SDK의 CustomerInfo가 아니라 `GET /v1/me`의 `premium.active`를 따른다. 상대가 구매한 경우 내 CustomerInfo에는 entitlement가 없다.
+- 연결 시(`POST /v1/couple`)와 `GET /v1/couple`의 `restorable`이 0이 아니면 `restore` 구매를 제안하고, 구매와 sync 후 `POST /v1/couple/restore`를 호출한다. 이미 복원한 커플은 0을 반환하고 크레딧을 쓰지 않는다. 상대는 `data_restored` 푸시를 받는다.
+
+### 서버 강제 규칙
+
+- 프리미엄 필요: `/v1/calls` 아래 전부(`/signal` WebSocket 포함), `/v1/photos` 아래 전부, `POST /v1/couple/restore`.
+  - 커플이 없으면 `404 couple:not_connected`, 프리미엄이 아니면 `402 purchase:required` + `meta: {"required":"premium"}`.
+  - `POST /v1/couple/restore`에서 옮길 데이터가 있는데 복원 크레딧이 0이면 `402 purchase:required` + `meta: {"required":"restore"}`.
+- 프리미엄 불필요: `/v1/auth/*`, `GET`/`PATCH /v1/me`, `POST /v1/me/purchases/sync`, `/v1/devices*`, `GET`/`POST`/`DELETE /v1/couple`, `POST /v1/couple/code`.
 
 ## 저장소 구조
 

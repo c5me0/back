@@ -562,9 +562,6 @@ func (u *PhotoUpsertOne) UpdateNewValues() *PhotoUpsertOne {
 			case photo.FieldThumbnailKey:
 				update.SetIgnore(column)
 
-			case photo.FieldCoupleID:
-				update.SetIgnore(column)
-
 			case photo.FieldUploaderID:
 				update.SetIgnore(column)
 
@@ -662,6 +659,9 @@ func (u *PhotoUpsert) Set[T any](column ent.ColumnOf[entity.Photo, T], value T) 
 	case photo.FieldFavoritedBy:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
+	case photo.FieldCoupleID:
+		u.UpdateSet.Set(column.Ref().Name, value)
+
 	case photo.FieldCallID:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
@@ -698,6 +698,9 @@ func (u *PhotoUpsert) SetExpr[T any](column ent.ColumnOf[entity.Photo, T], value
 	case photo.FieldFavoritedBy:
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
+	case photo.FieldCoupleID:
+		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
+
 	case photo.FieldCallID:
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
@@ -732,6 +735,9 @@ func (u *PhotoUpsert) UpdateNewValue[T any](column ent.ColumnOf[entity.Photo, T]
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
 	case photo.FieldFavoritedBy:
+		u.UpdateSet.SetExcluded(column.Ref().Name)
+
+	case photo.FieldCoupleID:
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
 	case photo.FieldCallID:
@@ -914,9 +920,6 @@ func (u *PhotoUpsertBulk) UpdateNewValues() *PhotoUpsertBulk {
 				update.SetIgnore(column)
 
 			case photo.FieldThumbnailKey:
-				update.SetIgnore(column)
-
-			case photo.FieldCoupleID:
 				update.SetIgnore(column)
 
 			case photo.FieldUploaderID:

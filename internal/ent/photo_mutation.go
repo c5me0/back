@@ -46,6 +46,7 @@ type PhotoPatch struct {
 	HeightAdd    ent.Option[int]           `json:"height_add,omitzero"`
 	TakenAt      ent.Option[time2.Time]    `json:"taken_at,omitzero"`
 	FavoritedBy  ent.Option[[]uuid.UUID]   `json:"favorited_by,omitzero"`
+	CoupleID     ent.Option[uuid.UUID]     `json:"couple_id,omitzero"`
 	CallID       ent.Option[uuid.UUID]     `json:"call_id,omitzero"`
 	UpdatedAt    ent.Option[time2.Time]    `json:"updated_at,omitzero"`
 	expressions  map[string]func(*sql.Builder)
@@ -384,6 +385,16 @@ func (i *PhotoPatch) set(column string, value any) error {
 		delete(i.expressions, column)
 		return nil
 
+	case photo.FieldCoupleID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Photo", value, column)}
+		}
+		i.CoupleID = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
 	case photo.FieldCallID:
 		v, ok := value.(uuid.UUID)
 		if !ok {
@@ -453,6 +464,13 @@ func (i *PhotoPatch) setExpr(column string, render func(*sql.Builder)) {
 func (i *PhotoPatch) setEdge(edge string, id any) error {
 	switch edge {
 
+	case photo.EdgeCouple:
+		value, ok := id.(uuid.UUID)
+		if !ok {
+			return &ValidationError{Name: edge, err: fmt.Errorf("ent: unexpected ID type %T for edge %q of Photo", id, edge)}
+		}
+		return i.set(photo.FieldCoupleID, value)
+
 	case photo.EdgeCall:
 		value, ok := id.(uuid.UUID)
 		if !ok {
@@ -469,6 +487,15 @@ func (i *PhotoPatch) addIDs(edge string, ids ...any) error {
 
 	}
 	return &ValidationError{Name: edge, err: fmt.Errorf("ent: edge %q of Photo does not accept IDs", edge)}
+}
+
+func (i *PhotoPatch) coupleIDs() []uuid.UUID {
+
+	if id, ok := i.CoupleID.Get(); ok {
+		return []uuid.UUID{id}
+	}
+	return nil
+
 }
 
 func (i *PhotoPatch) callIDs() []uuid.UUID {
@@ -552,6 +579,10 @@ func (p *PhotoPatch) removeIDs(edge string, ids ...any) error {
 func (p *PhotoPatch) clearEdge(edge string) error {
 	switch edge {
 
+	case photo.EdgeCouple:
+
+		return &ValidationError{Name: edge, err: fmt.Errorf("ent: edge %q of Photo is required", edge)}
+
 	case photo.EdgeCall:
 
 		if p.clearedEdges == nil {
@@ -627,6 +658,11 @@ func (p *PhotoPatch) apply(other PhotoPatch) {
 	if other.FavoritedBy.IsSet() {
 		p.FavoritedBy = other.FavoritedBy
 		delete(p.expressions, photo.FieldFavoritedBy)
+	}
+
+	if other.CoupleID.IsSet() {
+		p.CoupleID = other.CoupleID
+		delete(p.expressions, photo.FieldCoupleID)
 	}
 
 	if other.CallID.IsSet() {

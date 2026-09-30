@@ -15,40 +15,46 @@ import (
 
 // UserInsert is the write representation of a User creation.
 type UserInsert struct {
-	ID               ent.Option[uuid.UUID]  `json:"id,omitzero"`
-	Phone            string                 `json:"phone"`
-	DisplayName      ent.Option[string]     `json:"display_name,omitzero"`
-	PairingCode      string                 `json:"pairing_code"`
-	CallAlert        ent.Option[bool]       `json:"call_alert,omitzero"`
-	HighlightAlert   ent.Option[bool]       `json:"highlight_alert,omitzero"`
-	CoupleID         ent.Option[uuid.UUID]  `json:"couple_id,omitzero"`
-	CreatedAt        ent.Option[time2.Time] `json:"created_at,omitzero"`
-	UpdatedAt        ent.Option[time2.Time] `json:"updated_at,omitzero"`
-	SessionIDs       []uuid.UUID            `json:"session_ids,omitzero"`
-	DeviceIDs        []uuid.UUID            `json:"device_ids,omitzero"`
-	OutgoingCallIDs  []uuid.UUID            `json:"outgoing_call_ids,omitzero"`
-	IncomingCallIDs  []uuid.UUID            `json:"incoming_call_ids,omitzero"`
-	CallHighlightIDs []uuid.UUID            `json:"call_highlight_ids,omitzero"`
-	PhotoIDs         []uuid.UUID            `json:"photo_ids,omitzero"`
-	expressions      map[string]func(*sql.Builder)
+	ID                    ent.Option[uuid.UUID]  `json:"id,omitzero"`
+	Phone                 string                 `json:"phone"`
+	DisplayName           ent.Option[string]     `json:"display_name,omitzero"`
+	PairingCode           string                 `json:"pairing_code"`
+	CallAlert             ent.Option[bool]       `json:"call_alert,omitzero"`
+	HighlightAlert        ent.Option[bool]       `json:"highlight_alert,omitzero"`
+	PremiumUntil          ent.Option[time2.Time] `json:"premium_until,omitzero"`
+	RestoreTransactionIDs ent.Option[[]string]   `json:"restore_transaction_ids,omitzero"`
+	PurchasesSyncedAt     ent.Option[time2.Time] `json:"purchases_synced_at,omitzero"`
+	CoupleID              ent.Option[uuid.UUID]  `json:"couple_id,omitzero"`
+	CreatedAt             ent.Option[time2.Time] `json:"created_at,omitzero"`
+	UpdatedAt             ent.Option[time2.Time] `json:"updated_at,omitzero"`
+	SessionIDs            []uuid.UUID            `json:"session_ids,omitzero"`
+	DeviceIDs             []uuid.UUID            `json:"device_ids,omitzero"`
+	OutgoingCallIDs       []uuid.UUID            `json:"outgoing_call_ids,omitzero"`
+	IncomingCallIDs       []uuid.UUID            `json:"incoming_call_ids,omitzero"`
+	CallHighlightIDs      []uuid.UUID            `json:"call_highlight_ids,omitzero"`
+	PhotoIDs              []uuid.UUID            `json:"photo_ids,omitzero"`
+	expressions           map[string]func(*sql.Builder)
 }
 
 // UserPatch is the write representation of a User update.
 type UserPatch struct {
-	DisplayName    ent.Option[string]           `json:"display_name,omitzero"`
-	PairingCode    ent.Option[string]           `json:"pairing_code,omitzero"`
-	CallAlert      ent.Option[bool]             `json:"call_alert,omitzero"`
-	HighlightAlert ent.Option[bool]             `json:"highlight_alert,omitzero"`
-	CoupleID       ent.Option[uuid.UUID]        `json:"couple_id,omitzero"`
-	UpdatedAt      ent.Option[time2.Time]       `json:"updated_at,omitzero"`
-	Sessions       ent.RelationPatch[uuid.UUID] `json:"sessions,omitzero"`
-	Devices        ent.RelationPatch[uuid.UUID] `json:"devices,omitzero"`
-	OutgoingCalls  ent.RelationPatch[uuid.UUID] `json:"outgoing_calls,omitzero"`
-	IncomingCalls  ent.RelationPatch[uuid.UUID] `json:"incoming_calls,omitzero"`
-	CallHighlights ent.RelationPatch[uuid.UUID] `json:"call_highlights,omitzero"`
-	Photos         ent.RelationPatch[uuid.UUID] `json:"photos,omitzero"`
-	expressions    map[string]func(*sql.Builder)
-	clearedEdges   map[string]bool
+	DisplayName           ent.Option[string]           `json:"display_name,omitzero"`
+	PairingCode           ent.Option[string]           `json:"pairing_code,omitzero"`
+	CallAlert             ent.Option[bool]             `json:"call_alert,omitzero"`
+	HighlightAlert        ent.Option[bool]             `json:"highlight_alert,omitzero"`
+	PremiumUntil          ent.Option[time2.Time]       `json:"premium_until,omitzero"`
+	RestoreTransactionIDs ent.Option[[]string]         `json:"restore_transaction_ids,omitzero"`
+	PurchasesSyncedAt     ent.Option[time2.Time]       `json:"purchases_synced_at,omitzero"`
+	CoupleID              ent.Option[uuid.UUID]        `json:"couple_id,omitzero"`
+	UpdatedAt             ent.Option[time2.Time]       `json:"updated_at,omitzero"`
+	Sessions              ent.RelationPatch[uuid.UUID] `json:"sessions,omitzero"`
+	Devices               ent.RelationPatch[uuid.UUID] `json:"devices,omitzero"`
+	OutgoingCalls         ent.RelationPatch[uuid.UUID] `json:"outgoing_calls,omitzero"`
+	IncomingCalls         ent.RelationPatch[uuid.UUID] `json:"incoming_calls,omitzero"`
+	CallHighlights        ent.RelationPatch[uuid.UUID] `json:"call_highlights,omitzero"`
+	Photos                ent.RelationPatch[uuid.UUID] `json:"photos,omitzero"`
+	expressions           map[string]func(*sql.Builder)
+	clearedEdges          map[string]bool
 }
 
 func (i *UserInsert) set(column string, value any) error {
@@ -114,6 +120,36 @@ func (i *UserInsert) set(column string, value any) error {
 		delete(i.expressions, column)
 		return nil
 
+	case user.FieldPremiumUntil:
+		v, ok := value.(time2.Time)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of User", value, column)}
+		}
+		i.PremiumUntil = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldRestoreTransactionIDs:
+		v, ok := value.([]string)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of User", value, column)}
+		}
+		i.RestoreTransactionIDs = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldPurchasesSyncedAt:
+		v, ok := value.(time2.Time)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of User", value, column)}
+		}
+		i.PurchasesSyncedAt = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
 	case user.FieldCoupleID:
 		v, ok := value.(uuid.UUID)
 		if !ok {
@@ -153,6 +189,18 @@ func (i *UserInsert) setNull(column string) error {
 
 	case user.FieldDisplayName:
 		i.DisplayName = ent.Null[string]()
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldPremiumUntil:
+		i.PremiumUntil = ent.Null[time2.Time]()
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldPurchasesSyncedAt:
+		i.PurchasesSyncedAt = ent.Null[time2.Time]()
 
 		delete(i.expressions, column)
 		return nil
@@ -331,6 +379,36 @@ func (i *UserPatch) set(column string, value any) error {
 		delete(i.expressions, column)
 		return nil
 
+	case user.FieldPremiumUntil:
+		v, ok := value.(time2.Time)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of User", value, column)}
+		}
+		i.PremiumUntil = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldRestoreTransactionIDs:
+		v, ok := value.([]string)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of User", value, column)}
+		}
+		i.RestoreTransactionIDs = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldPurchasesSyncedAt:
+		v, ok := value.(time2.Time)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of User", value, column)}
+		}
+		i.PurchasesSyncedAt = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
 	case user.FieldCoupleID:
 		v, ok := value.(uuid.UUID)
 		if !ok {
@@ -360,6 +438,18 @@ func (i *UserPatch) setNull(column string) error {
 
 	case user.FieldDisplayName:
 		i.DisplayName = ent.Null[string]()
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldPremiumUntil:
+		i.PremiumUntil = ent.Null[time2.Time]()
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldPurchasesSyncedAt:
+		i.PurchasesSyncedAt = ent.Null[time2.Time]()
 
 		delete(i.expressions, column)
 		return nil
@@ -647,6 +737,21 @@ func (p *UserPatch) apply(other UserPatch) {
 	if other.HighlightAlert.IsSet() {
 		p.HighlightAlert = other.HighlightAlert
 		delete(p.expressions, user.FieldHighlightAlert)
+	}
+
+	if other.PremiumUntil.IsSet() {
+		p.PremiumUntil = other.PremiumUntil
+		delete(p.expressions, user.FieldPremiumUntil)
+	}
+
+	if other.RestoreTransactionIDs.IsSet() {
+		p.RestoreTransactionIDs = other.RestoreTransactionIDs
+		delete(p.expressions, user.FieldRestoreTransactionIDs)
+	}
+
+	if other.PurchasesSyncedAt.IsSet() {
+		p.PurchasesSyncedAt = other.PurchasesSyncedAt
+		delete(p.expressions, user.FieldPurchasesSyncedAt)
 	}
 
 	if other.CoupleID.IsSet() {
