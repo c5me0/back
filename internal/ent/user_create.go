@@ -73,7 +73,9 @@ func (b *UserCreate) SetExpr[T any](column ent.ColumnOf[entity.User, T], value e
 
 	case user.FieldHighlightAlert:
 
-	case user.FieldPremiumUntil:
+	case user.FieldStorageEntitlement:
+
+	case user.FieldStorageUntil:
 
 	case user.FieldRestoreTransactionIDs:
 
@@ -321,11 +323,18 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec, error) {
 		_spec.SetField(user.FieldHighlightAlert, field.TypeBool, nil)
 	}
 
-	if value, ok := _c.mutation.insert.PremiumUntil.Get(); ok {
-		_spec.SetField(user.FieldPremiumUntil, field.TypeTime, value)
+	if value, ok := _c.mutation.insert.StorageEntitlement.Get(); ok {
+		_spec.SetField(user.FieldStorageEntitlement, field.TypeString, value)
 	}
-	if _c.mutation.insert.PremiumUntil.IsNull() {
-		_spec.SetField(user.FieldPremiumUntil, field.TypeTime, nil)
+	if _c.mutation.insert.StorageEntitlement.IsNull() {
+		_spec.SetField(user.FieldStorageEntitlement, field.TypeString, nil)
+	}
+
+	if value, ok := _c.mutation.insert.StorageUntil.Get(); ok {
+		_spec.SetField(user.FieldStorageUntil, field.TypeTime, value)
+	}
+	if _c.mutation.insert.StorageUntil.IsNull() {
+		_spec.SetField(user.FieldStorageUntil, field.TypeTime, nil)
 	}
 
 	if value, ok := _c.mutation.insert.RestoreTransactionIDs.Get(); ok {
@@ -668,7 +677,10 @@ func (u *UserUpsert) Set[T any](column ent.ColumnOf[entity.User, T], value T) *U
 	case user.FieldHighlightAlert:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
-	case user.FieldPremiumUntil:
+	case user.FieldStorageEntitlement:
+		u.UpdateSet.Set(column.Ref().Name, value)
+
+	case user.FieldStorageUntil:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
 	case user.FieldRestoreTransactionIDs:
@@ -704,7 +716,10 @@ func (u *UserUpsert) SetExpr[T any](column ent.ColumnOf[entity.User, T], value e
 	case user.FieldHighlightAlert:
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
-	case user.FieldPremiumUntil:
+	case user.FieldStorageEntitlement:
+		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
+
+	case user.FieldStorageUntil:
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
 	case user.FieldRestoreTransactionIDs:
@@ -740,7 +755,10 @@ func (u *UserUpsert) UpdateNewValue[T any](column ent.ColumnOf[entity.User, T]) 
 	case user.FieldHighlightAlert:
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
-	case user.FieldPremiumUntil:
+	case user.FieldStorageEntitlement:
+		u.UpdateSet.SetExcluded(column.Ref().Name)
+
+	case user.FieldStorageUntil:
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
 	case user.FieldRestoreTransactionIDs:
@@ -776,7 +794,10 @@ func (u *UserUpsert) Clear[T any](column ent.ColumnOf[entity.User, T]) *UserUpse
 	case user.FieldDisplayName:
 		u.UpdateSet.SetNull(column.Ref().Name)
 
-	case user.FieldPremiumUntil:
+	case user.FieldStorageEntitlement:
+		u.UpdateSet.SetNull(column.Ref().Name)
+
+	case user.FieldStorageUntil:
 		u.UpdateSet.SetNull(column.Ref().Name)
 
 	case user.FieldPurchasesSyncedAt:

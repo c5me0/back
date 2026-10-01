@@ -13,6 +13,7 @@ import (
 	entCall "cameo/internal/ent/call"
 	entCouple "cameo/internal/ent/couple"
 	entPhoto "cameo/internal/ent/photo"
+	"cameo/internal/ent/schema_types/photo"
 	entUser "cameo/internal/ent/user"
 	"cameo/internal/protocol"
 	"cameo/internal/tools/pairing"
@@ -81,7 +82,7 @@ func restorable(ctx context.Context, db *ent.Client, current *ent.Couple) (model
 	if err != nil {
 		return models.Restorable{}, fmt.Errorf("count restorable calls: %w", err)
 	}
-	photos, err := db.Photo.Query().Where(entPhoto.CoupleID.In(previous...)).Count(ctx)
+	photos, err := db.Photo.Query().Where(entPhoto.CoupleID.In(previous...), entPhoto.Status.EQ(photo.StatusUploaded)).Count(ctx)
 	if err != nil {
 		return models.Restorable{}, fmt.Errorf("count restorable photos: %w", err)
 	}

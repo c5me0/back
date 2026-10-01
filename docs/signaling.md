@@ -30,7 +30,6 @@ Origin 검사는 하지 않는다.
 | 상태 | code | 의미 |
 |---|---|---|
 | 401 | `unauthenticated` | 토큰 없음/무효/만료 |
-| 402 | `purchase:required` | 커플이 프리미엄이 아님(`meta.required: "premium"`) |
 | 404 | `not_found` | ID 형식 오류이거나 우리 커플의 통화가 아님 |
 | 404 | `couple:not_connected` | 연결된 상대가 없음 |
 | 409 | `call:invalid_state` | 통화가 `ringing`/`active`가 아니거나 이 서버 프로세스에 살아 있지 않음. `GET /v1/calls/{id}`로 최종 상태를 확인할 것 |

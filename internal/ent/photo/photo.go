@@ -28,6 +28,8 @@ const (
 	FieldThumbnailKey = "thumbnail_key"
 	// FieldSizeBytes holds the string denoting the size_bytes field in the database.
 	FieldSizeBytes = "size_bytes"
+	// FieldThumbnailSizeBytes holds the string denoting the thumbnail_size_bytes field in the database.
+	FieldThumbnailSizeBytes = "thumbnail_size_bytes"
 	// FieldWidth holds the string denoting the width field in the database.
 	FieldWidth = "width"
 	// FieldHeight holds the string denoting the height field in the database.
@@ -78,66 +80,69 @@ const (
 )
 
 var (
-	ID           = ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: Table, Name: FieldID}
-	Status       = ent.OrderedColumn[entity.Photo, photo2.Status]{Table: Table, Name: FieldStatus, Valuer: func(value photo2.Status) (driver.Value, error) { return int8(value), nil }}
-	ContentType  = ent.StringColumn[entity.Photo, string]{Table: Table, Name: FieldContentType}
-	ObjectKey    = ent.StringColumn[entity.Photo, string]{Table: Table, Name: FieldObjectKey}
-	ThumbnailKey = ent.StringColumn[entity.Photo, string]{Table: Table, Name: FieldThumbnailKey}
-	SizeBytes    = ent.OrderedColumn[entity.Photo, int64]{Table: Table, Name: FieldSizeBytes}
-	Width        = ent.OrderedColumn[entity.Photo, int]{Table: Table, Name: FieldWidth}
-	Height       = ent.OrderedColumn[entity.Photo, int]{Table: Table, Name: FieldHeight}
-	TakenAt      = ent.OrderedColumn[entity.Photo, time2.Time]{Table: Table, Name: FieldTakenAt}
-	FavoritedBy  = ent.ArrayColumn[entity.Photo, uuid.UUID]{Table: Table, Name: FieldFavoritedBy}
-	CoupleID     = ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: Table, Name: FieldCoupleID}
-	UploaderID   = ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: Table, Name: FieldUploaderID}
-	CallID       = ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: Table, Name: FieldCallID}
-	CreatedAt    = ent.OrderedColumn[entity.Photo, time2.Time]{Table: Table, Name: FieldCreatedAt}
-	UpdatedAt    = ent.OrderedColumn[entity.Photo, time2.Time]{Table: Table, Name: FieldUpdatedAt}
-	Couple       = ent.NewUniqueRelation[entity.Photo, entity.Couple, uuid.UUID](EdgeCouple, newCoupleStep)
-	Uploader     = ent.NewUniqueRelation[entity.Photo, entity.User, uuid.UUID](EdgeUploader, newUploaderStep)
-	Call         = ent.NewUniqueRelation[entity.Photo, entity.Call, uuid.UUID](EdgeCall, newCallStep)
+	ID                 = ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: Table, Name: FieldID}
+	Status             = ent.OrderedColumn[entity.Photo, photo2.Status]{Table: Table, Name: FieldStatus, Valuer: func(value photo2.Status) (driver.Value, error) { return int8(value), nil }}
+	ContentType        = ent.StringColumn[entity.Photo, string]{Table: Table, Name: FieldContentType}
+	ObjectKey          = ent.StringColumn[entity.Photo, string]{Table: Table, Name: FieldObjectKey}
+	ThumbnailKey       = ent.StringColumn[entity.Photo, string]{Table: Table, Name: FieldThumbnailKey}
+	SizeBytes          = ent.OrderedColumn[entity.Photo, int64]{Table: Table, Name: FieldSizeBytes}
+	ThumbnailSizeBytes = ent.OrderedColumn[entity.Photo, int64]{Table: Table, Name: FieldThumbnailSizeBytes}
+	Width              = ent.OrderedColumn[entity.Photo, int]{Table: Table, Name: FieldWidth}
+	Height             = ent.OrderedColumn[entity.Photo, int]{Table: Table, Name: FieldHeight}
+	TakenAt            = ent.OrderedColumn[entity.Photo, time2.Time]{Table: Table, Name: FieldTakenAt}
+	FavoritedBy        = ent.ArrayColumn[entity.Photo, uuid.UUID]{Table: Table, Name: FieldFavoritedBy}
+	CoupleID           = ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: Table, Name: FieldCoupleID}
+	UploaderID         = ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: Table, Name: FieldUploaderID}
+	CallID             = ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: Table, Name: FieldCallID}
+	CreatedAt          = ent.OrderedColumn[entity.Photo, time2.Time]{Table: Table, Name: FieldCreatedAt}
+	UpdatedAt          = ent.OrderedColumn[entity.Photo, time2.Time]{Table: Table, Name: FieldUpdatedAt}
+	Couple             = ent.NewUniqueRelation[entity.Photo, entity.Couple, uuid.UUID](EdgeCouple, newCoupleStep)
+	Uploader           = ent.NewUniqueRelation[entity.Photo, entity.User, uuid.UUID](EdgeUploader, newUploaderStep)
+	Call               = ent.NewUniqueRelation[entity.Photo, entity.Call, uuid.UUID](EdgeCall, newCallStep)
 )
 
 // Alias returns the columns of the photos table under a different table alias.
 func Alias(name string) AliasedTable {
 	return AliasedTable{
-		TableAlias:   name,
-		ID:           ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: name, Name: FieldID},
-		Status:       ent.OrderedColumn[entity.Photo, photo2.Status]{Table: name, Name: FieldStatus, Valuer: func(value photo2.Status) (driver.Value, error) { return int8(value), nil }},
-		ContentType:  ent.StringColumn[entity.Photo, string]{Table: name, Name: FieldContentType},
-		ObjectKey:    ent.StringColumn[entity.Photo, string]{Table: name, Name: FieldObjectKey},
-		ThumbnailKey: ent.StringColumn[entity.Photo, string]{Table: name, Name: FieldThumbnailKey},
-		SizeBytes:    ent.OrderedColumn[entity.Photo, int64]{Table: name, Name: FieldSizeBytes},
-		Width:        ent.OrderedColumn[entity.Photo, int]{Table: name, Name: FieldWidth},
-		Height:       ent.OrderedColumn[entity.Photo, int]{Table: name, Name: FieldHeight},
-		TakenAt:      ent.OrderedColumn[entity.Photo, time2.Time]{Table: name, Name: FieldTakenAt},
-		FavoritedBy:  ent.ArrayColumn[entity.Photo, uuid.UUID]{Table: name, Name: FieldFavoritedBy},
-		CoupleID:     ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: name, Name: FieldCoupleID},
-		UploaderID:   ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: name, Name: FieldUploaderID},
-		CallID:       ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: name, Name: FieldCallID},
-		CreatedAt:    ent.OrderedColumn[entity.Photo, time2.Time]{Table: name, Name: FieldCreatedAt},
-		UpdatedAt:    ent.OrderedColumn[entity.Photo, time2.Time]{Table: name, Name: FieldUpdatedAt},
+		TableAlias:         name,
+		ID:                 ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: name, Name: FieldID},
+		Status:             ent.OrderedColumn[entity.Photo, photo2.Status]{Table: name, Name: FieldStatus, Valuer: func(value photo2.Status) (driver.Value, error) { return int8(value), nil }},
+		ContentType:        ent.StringColumn[entity.Photo, string]{Table: name, Name: FieldContentType},
+		ObjectKey:          ent.StringColumn[entity.Photo, string]{Table: name, Name: FieldObjectKey},
+		ThumbnailKey:       ent.StringColumn[entity.Photo, string]{Table: name, Name: FieldThumbnailKey},
+		SizeBytes:          ent.OrderedColumn[entity.Photo, int64]{Table: name, Name: FieldSizeBytes},
+		ThumbnailSizeBytes: ent.OrderedColumn[entity.Photo, int64]{Table: name, Name: FieldThumbnailSizeBytes},
+		Width:              ent.OrderedColumn[entity.Photo, int]{Table: name, Name: FieldWidth},
+		Height:             ent.OrderedColumn[entity.Photo, int]{Table: name, Name: FieldHeight},
+		TakenAt:            ent.OrderedColumn[entity.Photo, time2.Time]{Table: name, Name: FieldTakenAt},
+		FavoritedBy:        ent.ArrayColumn[entity.Photo, uuid.UUID]{Table: name, Name: FieldFavoritedBy},
+		CoupleID:           ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: name, Name: FieldCoupleID},
+		UploaderID:         ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: name, Name: FieldUploaderID},
+		CallID:             ent.OrderedColumn[entity.Photo, uuid.UUID]{Table: name, Name: FieldCallID},
+		CreatedAt:          ent.OrderedColumn[entity.Photo, time2.Time]{Table: name, Name: FieldCreatedAt},
+		UpdatedAt:          ent.OrderedColumn[entity.Photo, time2.Time]{Table: name, Name: FieldUpdatedAt},
 	}
 }
 
 // AliasedTable holds typed columns qualified by TableAlias.
 type AliasedTable struct {
-	TableAlias   string
-	ID           ent.OrderedColumn[entity.Photo, uuid.UUID]
-	Status       ent.OrderedColumn[entity.Photo, photo2.Status]
-	ContentType  ent.StringColumn[entity.Photo, string]
-	ObjectKey    ent.StringColumn[entity.Photo, string]
-	ThumbnailKey ent.StringColumn[entity.Photo, string]
-	SizeBytes    ent.OrderedColumn[entity.Photo, int64]
-	Width        ent.OrderedColumn[entity.Photo, int]
-	Height       ent.OrderedColumn[entity.Photo, int]
-	TakenAt      ent.OrderedColumn[entity.Photo, time2.Time]
-	FavoritedBy  ent.ArrayColumn[entity.Photo, uuid.UUID]
-	CoupleID     ent.OrderedColumn[entity.Photo, uuid.UUID]
-	UploaderID   ent.OrderedColumn[entity.Photo, uuid.UUID]
-	CallID       ent.OrderedColumn[entity.Photo, uuid.UUID]
-	CreatedAt    ent.OrderedColumn[entity.Photo, time2.Time]
-	UpdatedAt    ent.OrderedColumn[entity.Photo, time2.Time]
+	TableAlias         string
+	ID                 ent.OrderedColumn[entity.Photo, uuid.UUID]
+	Status             ent.OrderedColumn[entity.Photo, photo2.Status]
+	ContentType        ent.StringColumn[entity.Photo, string]
+	ObjectKey          ent.StringColumn[entity.Photo, string]
+	ThumbnailKey       ent.StringColumn[entity.Photo, string]
+	SizeBytes          ent.OrderedColumn[entity.Photo, int64]
+	ThumbnailSizeBytes ent.OrderedColumn[entity.Photo, int64]
+	Width              ent.OrderedColumn[entity.Photo, int]
+	Height             ent.OrderedColumn[entity.Photo, int]
+	TakenAt            ent.OrderedColumn[entity.Photo, time2.Time]
+	FavoritedBy        ent.ArrayColumn[entity.Photo, uuid.UUID]
+	CoupleID           ent.OrderedColumn[entity.Photo, uuid.UUID]
+	UploaderID         ent.OrderedColumn[entity.Photo, uuid.UUID]
+	CallID             ent.OrderedColumn[entity.Photo, uuid.UUID]
+	CreatedAt          ent.OrderedColumn[entity.Photo, time2.Time]
+	UpdatedAt          ent.OrderedColumn[entity.Photo, time2.Time]
 }
 
 // And joins predicates with AND.
@@ -163,6 +168,7 @@ var Columns = []string{
 	FieldObjectKey,
 	FieldThumbnailKey,
 	FieldSizeBytes,
+	FieldThumbnailSizeBytes,
 	FieldWidth,
 	FieldHeight,
 	FieldTakenAt,
@@ -193,6 +199,8 @@ var (
 	ObjectKeyValidator func(string) error
 	// ThumbnailKeyValidator is a validator for the "thumbnail_key" field. It is called by the builders before save.
 	ThumbnailKeyValidator func(string) error
+	// DefaultThumbnailSizeBytes holds the default value on creation for the "thumbnail_size_bytes" field.
+	DefaultThumbnailSizeBytes int64
 	// DefaultFavoritedBy holds the default value on creation for the "favorited_by" field.
 	DefaultFavoritedBy []uuid.UUID
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.

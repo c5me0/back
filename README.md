@@ -16,7 +16,7 @@
 | 후처리 | ffmpeg(트랙 인코딩/믹스), S3 업로드, OpenAI 전사(whisper-1) + Responses API 제목/요약 |
 | 저장소 | S3 호환 스토리지(minio-go), presigned PUT/GET |
 | 푸시 | APNs 토큰 인증(sideshow/apns2), 미설정 시 로그 전용 |
-| 결제 | RevenueCat(REST v1 + 웹훅), 미설정 시 모두 프리미엄 |
+| 결제 | RevenueCat(REST v1 + 웹훅), 커플별 저장 용량 티어와 데이터 복원 |
 
 ## 준비물
 
@@ -92,10 +92,11 @@ curl -i localhost:18080/readyz
 | `openai.language` | 선택 | | 전사 언어 힌트(ISO-639-1, 예: `ko`) |
 | `push.apns.key_path` / `key_id` / `team_id` / `bundle_id` | 섹션 선택, 있으면 모두 필수 | | APNs .p8 키 경로와 식별자. VoIP topic은 `<bundle_id>.voip`. 없으면 푸시를 로그로만 남김 |
 | `push.apns.production` | 선택 | `false` | `true`면 운영 APNs, 아니면 sandbox |
-| `revenuecat.api_key` | 섹션 선택, 있으면 필수 | | RevenueCat REST v1 `GET /v1/subscribers/{app_user_id}`에 Bearer로 쓰는 키(public SDK 키 또는 secret 키). 섹션이 없으면 결제 비활성: 모두 프리미엄, 복원 무료, sync는 no-op, 웹훅 미제공 |
+| `revenuecat.api_key` | 섹션 선택, 있으면 필수 | | RevenueCat REST v1 `GET /v1/subscribers/{app_user_id}`에 Bearer로 쓰는 키(public SDK 키 또는 secret 키). 섹션이 없으면 결제 비활성: 복원 무료, sync는 no-op, 웹훅 미제공(용량 티어도 얻을 수 없음) |
 | `revenuecat.webhook_secret` | 선택 | | RevenueCat 웹훅 서명 secret. 비어 있으면 `POST /v1/webhooks/revenuecat`을 제공하지 않음 |
-| `revenuecat.premium_entitlement` | 선택 | `cameo_pro` | 프리미엄 entitlement 식별자 |
 | `revenuecat.restore_product_id` | 선택 | `cameo_recovery` | 데이터 복원 소모성 상품 ID |
+| `quota.free_bytes` | 선택 | `1000000000` | 커플의 기본 저장 용량(바이트, 1 이상). `quota` 섹션이 없으면 용량 무제한 |
+| `quota.tiers` | 선택 | `{}` | RevenueCat entitlement ID → 그 티어의 커플 총 용량(바이트). 각 값은 `free_bytes`보다 커야 함 |
 
 ## Make 타깃
 
@@ -182,28 +183,51 @@ make prod-logs
 - Twilio Verify(실제 SMS): `"twilio": { "account_sid": "...", "auth_token": "...", "verify_service_sid": "..." }`. 설정 후 `otp.allow_fake`를 `false`로 바꾼다.
 - OpenAI(전사, 제목/요약): `"openai": { "api_key": "...", "language": "ko" }`. 없으면 녹음만 업로드한다.
 - APNs 푸시: `.p8` 키를 `config/`에 두고 `"push": { "apns": { "key_path": "/config/AuthKey_XXXX.p8", "key_id": "...", "team_id": "...", "bundle_id": "...", "production": true } }`.
-- RevenueCat(결제): 아래 [RevenueCat](#revenuecat) 참고. 없으면 모두 프리미엄으로 취급한다.
+- RevenueCat(결제)과 저장 용량: 아래 [RevenueCat과 저장 용량](#revenuecat과-저장-용량) 참고.
 
-## RevenueCat
+## RevenueCat과 저장 용량
 
-결제는 RevenueCat으로 처리한다. 상품은 둘이다.
+모든 기능은 무료다. 대신 커플마다 저장 용량 한도가 있고, 결제는 용량 티어와 데이터 복원에만 쓴다. 결제는 RevenueCat으로 처리한다.
+
+### 용량 모델
+
+- 사용량은 커플 단위로 센다: 업로드가 끝난 사진(원본 + 썸네일 바이트)과 통화 녹음(믹스된 `mixed.m4a` 바이트). 업로드가 끝나지 않은(`pending`) 사진은 세지 않는다. 참여자별 녹음은 S3에 올리지 않으므로 세지 않는다.
+- 한도는 `quota.free_bytes`가 기본이다. 두 사람 중 누군가에게 `quota.tiers`에 있는 entitlement가 활성이면, 두 사람의 활성 티어 중 가장 큰 값이 커플의 한도가 된다. 누가 샀는지는 `GET /v1/me`의 `storage.source`(`self`/`partner`/`none`)로 알 수 있다.
+- `quota` 섹션이 없으면 용량은 무제한이다(`storage.quota_bytes`가 `null`).
+- `GET /v1/me`는 `storage: {used_bytes, quota_bytes, tier, source, until}`를 반환한다. 무료 티어에서는 `tier`와 `until`이 `null`이다.
+
+### 서버 강제 규칙
+
+용량을 검사하는 곳은 두 군데뿐이고, 둘 다 `402 storage:quota_exceeded` + `meta: {"used_bytes", "quota_bytes", "required_bytes"}`를 돌려준다.
+
+- `POST /v1/photos/upload-url`: `size_bytes + thumbnail_size_bytes`가 남은 용량에 들어가야 한다.
+- `POST /v1/calls`: 사용량이 한도에 도달했으면 막는다(`required_bytes`는 1). 통화 녹음 크기는 미리 알 수 없으므로 진행 중인 통화는 끊지 않고, 한도를 조금 넘을 수 있다.
+
+조회, 삭제, 시그널링 등 나머지 경로는 한도를 넘어도 그대로 동작하므로 사용자가 데이터를 지워 공간을 확보할 수 있다.
+
+`purchase:required`(402)는 `POST /v1/couple/restore`에만 남아 있다: 옮길 데이터가 있는데 복원 크레딧이 0이면 `meta: {"required":"restore"}`. 복원은 용량을 검사하지 않는다. 복원한 데이터로 한도를 넘으면 데이터를 지우거나 더 큰 티어를 살 때까지 업로드와 새 통화가 막힌다.
+
+### 상품
 
 | product_id | entitlement_id | 가격 | API에서의 역할 |
 |---|---|---|---|
-| `monthly_pur` | `cameo_pro` | USD 4.99 / 월 | 구독. 앱 전체(통화, 사진)를 연다. `premium` (`User.premium`, `meta.required: premium`) |
+| `monthly_pur` | `cameo_pro` | USD 4.99 / 월 | 구독. `quota.tiers["cameo_pro"]`로 커플 용량을 올린다(현재 50 GB, 잠정값). `User.storage.tier` |
 | `cameo_recovery` | `cameo_recovery` | USD 29.90 | 이전 커플 데이터 복원 1회. `restore` (`User.restore_credits`, `meta.required: restore`) |
 
-`cameo_recovery`는 반드시 소모성(consumable) 상품이어야 한다. 구매 한 번이 복원 크레딧 하나이고, 서버는 subscriber의 `non_subscriptions["cameo_recovery"]` 구매 건수를 센다.
+`cameo_pro`의 50 GB는 확정되지 않은 가정이다. 용량은 코드가 아니라 `quota.tiers` 설정이 정하므로 바꾸려면 설정만 고친다.
 
-둘 다 커플 단위다. 둘 중 한 명이라도 `cameo_pro`가 활성이면 커플이 프리미엄이고, 복원 크레딧은 두 사람의 미사용 `cameo_recovery` 구매 합계다.
+`cameo_recovery`는 반드시 소모성(consumable) 상품이어야 한다. 구매 한 번이 복원 크레딧 하나이고, 서버는 subscriber의 `non_subscriptions["cameo_recovery"]` 구매 건수를 센다. 복원 크레딧은 두 사람의 미사용 `cameo_recovery` 구매 합계다.
 
 ### 대시보드
 
 1. 프로젝트를 만들고 iOS 앱을 추가한다. In-App Purchase Key(.p8)를 등록한다.
-2. entitlement `cameo_pro`를 만들고 구독 상품 `monthly_pur`를 붙인다.
-3. 소모성 상품 `cameo_recovery`를 만든다.
-4. offering을 만들어 구독 패키지와 `cameo_recovery`를 넣는다.
-5. 개발 중에는 Test Store 키로도 동작한다.
+2. 용량 티어마다 entitlement를 하나씩 만들고(예: `cameo_pro`) 해당 구독 상품(예: `monthly_pur`)을 붙인다. 서버는 entitlement ID로 티어를 찾으므로 `quota.tiers`의 키와 같아야 한다.
+3. App Store Connect에서 티어 구독 상품들은 같은 subscription group에 넣어 업그레이드/다운그레이드가 되게 한다.
+4. 소모성 상품 `cameo_recovery`를 만든다.
+5. offering을 만들어 구독 패키지와 `cameo_recovery`를 넣는다.
+6. 개발 중에는 Test Store 키로도 동작한다.
+
+`PRODUCT_CHANGE`(티어 변경) 이벤트는 즉시 반영되지 않을 수 있다. 서버는 이벤트 종류가 아니라 RevenueCat에서 다시 읽은 활성 entitlement로 티어를 정하므로, 다운그레이드는 현재 기간이 끝나 entitlement가 바뀔 때 반영된다.
 
 ### 웹훅
 
@@ -218,26 +242,24 @@ make prod-logs
 "revenuecat": {
   "api_key": "<REVENUECAT_API_KEY>",
   "webhook_secret": "<REVENUECAT_WEBHOOK_SECRET>",
-  "premium_entitlement": "cameo_pro",
   "restore_product_id": "cameo_recovery"
+},
+"quota": {
+  "free_bytes": 1000000000,
+  "tiers": {
+    "cameo_pro": 50000000000
+  }
 }
 ```
 
-섹션이 없으면 결제가 꺼진다(로컬 개발용): 모두 프리미엄, 복원 무료, `POST /v1/me/purchases/sync`는 아무것도 하지 않고 웹훅은 제공하지 않는다.
+`revenuecat` 섹션이 없으면 결제가 꺼진다(로컬 개발용): 복원 무료, `POST /v1/me/purchases/sync`는 아무것도 하지 않고 웹훅은 제공하지 않는다. 이때 `quota`가 있으면 모두 `free_bytes`를 쓴다. `quota` 섹션이 없으면 용량은 무제한이다.
 
-### 클라이언트 책임
+### 클라이언트
 
-- SDK의 App User ID는 CAMEO 사용자 `id`다. 로그인 직후 그 ID로 SDK를 설정하고 `logOut`은 호출하지 않는다.
-- SDK에서 구매나 복원이 끝나면, 그리고 앱 실행 시 `POST /v1/me/purchases/sync`를 호출한다(갱신된 `User` 반환).
-- 기능 게이팅은 SDK의 CustomerInfo가 아니라 `GET /v1/me`의 `premium.active`를 따른다. 상대가 구매한 경우 내 CustomerInfo에는 entitlement가 없다.
-- 연결 시(`POST /v1/couple`)와 `GET /v1/couple`의 `restorable`이 0이 아니면 `cameo_recovery` 구매를 제안하고, 구매와 sync 후 `POST /v1/couple/restore`를 호출한다. 이미 복원한 커플은 0을 반환하고 크레딧을 쓰지 않는다. 상대는 `data_restored` 푸시를 받는다.
-
-### 서버 강제 규칙
-
-- 프리미엄 필요: `/v1/calls` 아래 전부(`/signal` WebSocket 포함), `/v1/photos` 아래 전부, `POST /v1/couple/restore`.
-  - 커플이 없으면 `404 couple:not_connected`, 프리미엄이 아니면 `402 purchase:required` + `meta: {"required":"premium"}`.
-  - `POST /v1/couple/restore`에서 옮길 데이터가 있는데 복원 크레딧이 0이면 `402 purchase:required` + `meta: {"required":"restore"}`.
-- 프리미엄 불필요: `/v1/auth/*`, `GET`/`PATCH /v1/me`, `POST /v1/me/purchases/sync`, `/v1/devices*`, `GET`/`POST`/`DELETE /v1/couple`, `POST /v1/couple/code`.
+- 로그인 직후 CAMEO 사용자 `id`를 App User ID로 SDK를 설정하고 `logOut`은 호출하지 않는다.
+- SDK에서 구매나 복원이 끝나면, 그리고 앱 실행 시 `POST /v1/me/purchases/sync`를 호출한다(갱신된 `User` 반환). 용량은 SDK의 CustomerInfo가 아니라 `User.storage`를 따른다(상대가 산 티어는 내 CustomerInfo에 없다).
+- `402 storage:quota_exceeded`를 받으면 `meta`로 사용량을 보여 주고 데이터 삭제나 티어 구매를 안내한다.
+- `restorable`이 0이 아니면 `cameo_recovery` 구매를 제안하고, 구매와 sync 후 `POST /v1/couple/restore`를 호출한다. 이미 복원한 커플은 0을 반환하고 크레딧을 쓰지 않는다. 상대는 `data_restored` 푸시를 받는다.
 
 ## 저장소 구조
 

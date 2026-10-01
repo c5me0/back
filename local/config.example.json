@@ -41,5 +41,9 @@
   "otp": {
     "fake_code": "000000",
     "allow_fake": true
+  },
+  "quota": {
+    "free_bytes": 1000000000,
+    "tiers": { "cameo_pro": 50000000000 }
   }
 }

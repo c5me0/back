@@ -32,16 +32,20 @@ func init() {
 	callDescTranscriptStatus := callFields[2].Descriptor()
 	// call.DefaultTranscriptStatus holds the default value on creation for the transcript_status field.
 	call.DefaultTranscriptStatus = callDescTranscriptStatus.Default.(func() call2.TranscriptStatus)
+	// callDescRecordingBytes is the schema descriptor for recording_bytes field.
+	callDescRecordingBytes := callFields[6].Descriptor()
+	// call.DefaultRecordingBytes holds the default value on creation for the recording_bytes field.
+	call.DefaultRecordingBytes = callDescRecordingBytes.Default.(int64)
 	// callDescFavoritedBy is the schema descriptor for favorited_by field.
-	callDescFavoritedBy := callFields[6].Descriptor()
+	callDescFavoritedBy := callFields[7].Descriptor()
 	// call.DefaultFavoritedBy holds the default value on creation for the favorited_by field.
 	call.DefaultFavoritedBy = callDescFavoritedBy.Default.([]uuid.UUID)
 	// callDescCreatedAt is the schema descriptor for created_at field.
-	callDescCreatedAt := callFields[13].Descriptor()
+	callDescCreatedAt := callFields[14].Descriptor()
 	// call.DefaultCreatedAt holds the default value on creation for the created_at field.
 	call.DefaultCreatedAt = callDescCreatedAt.Default.(func() time2.Time)
 	// callDescUpdatedAt is the schema descriptor for updated_at field.
-	callDescUpdatedAt := callFields[14].Descriptor()
+	callDescUpdatedAt := callFields[15].Descriptor()
 	// call.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	call.DefaultUpdatedAt = callDescUpdatedAt.Default.(func() time2.Time)
 	// call.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -149,16 +153,20 @@ func init() {
 		}
 		return nil
 	}
+	// photoDescThumbnailSizeBytes is the schema descriptor for thumbnail_size_bytes field.
+	photoDescThumbnailSizeBytes := photoFields[6].Descriptor()
+	// photo.DefaultThumbnailSizeBytes holds the default value on creation for the thumbnail_size_bytes field.
+	photo.DefaultThumbnailSizeBytes = photoDescThumbnailSizeBytes.Default.(int64)
 	// photoDescFavoritedBy is the schema descriptor for favorited_by field.
-	photoDescFavoritedBy := photoFields[9].Descriptor()
+	photoDescFavoritedBy := photoFields[10].Descriptor()
 	// photo.DefaultFavoritedBy holds the default value on creation for the favorited_by field.
 	photo.DefaultFavoritedBy = photoDescFavoritedBy.Default.([]uuid.UUID)
 	// photoDescCreatedAt is the schema descriptor for created_at field.
-	photoDescCreatedAt := photoFields[13].Descriptor()
+	photoDescCreatedAt := photoFields[14].Descriptor()
 	// photo.DefaultCreatedAt holds the default value on creation for the created_at field.
 	photo.DefaultCreatedAt = photoDescCreatedAt.Default.(func() time2.Time)
 	// photoDescUpdatedAt is the schema descriptor for updated_at field.
-	photoDescUpdatedAt := photoFields[14].Descriptor()
+	photoDescUpdatedAt := photoFields[15].Descriptor()
 	// photo.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	photo.DefaultUpdatedAt = photoDescUpdatedAt.Default.(func() time2.Time)
 	// photo.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -218,15 +226,15 @@ func init() {
 	// user.DefaultHighlightAlert holds the default value on creation for the highlight_alert field.
 	user.DefaultHighlightAlert = userDescHighlightAlert.Default.(bool)
 	// userDescRestoreTransactionIDs is the schema descriptor for restore_transaction_ids field.
-	userDescRestoreTransactionIDs := userFields[7].Descriptor()
+	userDescRestoreTransactionIDs := userFields[8].Descriptor()
 	// user.DefaultRestoreTransactionIDs holds the default value on creation for the restore_transaction_ids field.
 	user.DefaultRestoreTransactionIDs = userDescRestoreTransactionIDs.Default.([]string)
 	// userDescCreatedAt is the schema descriptor for created_at field.
-	userDescCreatedAt := userFields[10].Descriptor()
+	userDescCreatedAt := userFields[11].Descriptor()
 	// user.DefaultCreatedAt holds the default value on creation for the created_at field.
 	user.DefaultCreatedAt = userDescCreatedAt.Default.(func() time2.Time)
 	// userDescUpdatedAt is the schema descriptor for updated_at field.
-	userDescUpdatedAt := userFields[11].Descriptor()
+	userDescUpdatedAt := userFields[12].Descriptor()
 	// user.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	user.DefaultUpdatedAt = userDescUpdatedAt.Default.(func() time2.Time)
 	// user.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

@@ -45,6 +45,14 @@ func (h *Handler) UploadURL(ctx context.Context, req *UploadURLRequest) (*Upload
 		return nil, err
 	}
 
+	status, err := h.purchase.Status(ctx, &ent.User{ID: request_context.UserID(ctx), CoupleID: &coupleID})
+	if err != nil {
+		return nil, err
+	}
+	if err = status.Storage.Reserve(req.SizeBytes + req.ThumbnailSizeBytes); err != nil {
+		return nil, err
+	}
+
 	id, err := uuid.NewV7()
 	if err != nil {
 		return nil, fmt.Errorf("generate photo id: %w", err)
@@ -53,16 +61,17 @@ func (h *Handler) UploadURL(ctx context.Context, req *UploadURLRequest) (*Upload
 
 	// InsertBulk instead of Insert: staticcheck v0.8.0 mis-maps facts of builders with generic methods (SA4023 panic).
 	rows, err := h.db.Photo.InsertBulk(ent.PhotoInsert{
-		ID:           ent.Some(id),
-		ContentType:  req.ContentType,
-		ObjectKey:    prefix + "/original",
-		ThumbnailKey: prefix + "/thumbnail",
-		SizeBytes:    req.SizeBytes,
-		Width:        ent.FromPtr(req.Width),
-		Height:       ent.FromPtr(req.Height),
-		TakenAt:      ent.FromPtr(req.TakenAt),
-		CoupleID:     coupleID,
-		UploaderID:   request_context.UserID(ctx),
+		ID:                 ent.Some(id),
+		ContentType:        req.ContentType,
+		ObjectKey:          prefix + "/original",
+		ThumbnailKey:       prefix + "/thumbnail",
+		SizeBytes:          req.SizeBytes,
+		ThumbnailSizeBytes: ent.Some(req.ThumbnailSizeBytes),
+		Width:              ent.FromPtr(req.Width),
+		Height:             ent.FromPtr(req.Height),
+		TakenAt:            ent.FromPtr(req.TakenAt),
+		CoupleID:           coupleID,
+		UploaderID:         request_context.UserID(ctx),
 	}).Save(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("insert photo: %w", err)

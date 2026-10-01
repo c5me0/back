@@ -34,6 +34,8 @@ type Photo struct {
 	ThumbnailKey string `json:"thumbnail_key,omitempty"`
 	// SizeBytes holds the value of the "size_bytes" field.
 	SizeBytes int64 `json:"size_bytes,omitempty"`
+	// ThumbnailSizeBytes holds the value of the "thumbnail_size_bytes" field.
+	ThumbnailSizeBytes int64 `json:"thumbnail_size_bytes,omitempty"`
 	// Width holds the value of the "width" field.
 	Width *int `json:"width,omitempty"`
 	// Height holds the value of the "height" field.
@@ -146,7 +148,7 @@ func (*Photo) scanValues(columns []string) ([]any, error) {
 			values[i] = new(*[]uuid.UUID)
 		case photo.FieldWidth, photo.FieldHeight:
 			values[i] = new(*int)
-		case photo.FieldSizeBytes:
+		case photo.FieldSizeBytes, photo.FieldThumbnailSizeBytes:
 			values[i] = new(*int64)
 		case photo.FieldStatus:
 			values[i] = new(*photo2.Status)
@@ -211,6 +213,13 @@ func (_m *Photo) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field size_bytes", values[i])
 			} else if value != nil && *value != nil {
 				_m.SizeBytes = **value
+			}
+		case photo.FieldThumbnailSizeBytes:
+
+			if value, ok := values[i].(**int64); !ok {
+				return fmt.Errorf("unexpected type %T for field thumbnail_size_bytes", values[i])
+			} else if value != nil && *value != nil {
+				_m.ThumbnailSizeBytes = **value
 			}
 		case photo.FieldWidth:
 
@@ -330,6 +339,9 @@ func (_m *Photo) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("size_bytes=")
 	builder.WriteString(fmt.Sprintf("%v", _m.SizeBytes))
+	builder.WriteString(", ")
+	builder.WriteString("thumbnail_size_bytes=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ThumbnailSizeBytes))
 	builder.WriteString(", ")
 	if v := _m.Width; v != nil {
 		builder.WriteString("width=")

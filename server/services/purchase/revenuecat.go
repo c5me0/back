@@ -29,6 +29,17 @@ type entitlement struct {
 	GracePeriodExpiresDate *time.Time `json:"grace_period_expires_date"`
 }
 
+// until is when the entitlement lapses, counting the billing grace period. A lifetime entitlement never lapses.
+func (e entitlement) until() time.Time {
+	if e.ExpiresDate == nil {
+		return lifetime
+	}
+	if e.GracePeriodExpiresDate != nil && e.GracePeriodExpiresDate.After(*e.ExpiresDate) {
+		return *e.GracePeriodExpiresDate
+	}
+	return *e.ExpiresDate
+}
+
 type nonSubscription struct {
 	ID string `json:"id"`
 }

@@ -15,42 +15,45 @@ import (
 
 // PhotoInsert is the write representation of a Photo creation.
 type PhotoInsert struct {
-	ID           ent.Option[uuid.UUID]     `json:"id,omitzero"`
-	Status       ent.Option[photo2.Status] `json:"status,omitzero"`
-	ContentType  string                    `json:"content_type"`
-	ObjectKey    string                    `json:"object_key"`
-	ThumbnailKey string                    `json:"thumbnail_key"`
-	SizeBytes    int64                     `json:"size_bytes"`
-	Width        ent.Option[int]           `json:"width,omitzero"`
-	Height       ent.Option[int]           `json:"height,omitzero"`
-	TakenAt      ent.Option[time2.Time]    `json:"taken_at,omitzero"`
-	FavoritedBy  ent.Option[[]uuid.UUID]   `json:"favorited_by,omitzero"`
-	CoupleID     uuid.UUID                 `json:"couple_id"`
-	UploaderID   uuid.UUID                 `json:"uploader_id"`
-	CallID       ent.Option[uuid.UUID]     `json:"call_id,omitzero"`
-	CreatedAt    ent.Option[time2.Time]    `json:"created_at,omitzero"`
-	UpdatedAt    ent.Option[time2.Time]    `json:"updated_at,omitzero"`
-	expressions  map[string]func(*sql.Builder)
+	ID                 ent.Option[uuid.UUID]     `json:"id,omitzero"`
+	Status             ent.Option[photo2.Status] `json:"status,omitzero"`
+	ContentType        string                    `json:"content_type"`
+	ObjectKey          string                    `json:"object_key"`
+	ThumbnailKey       string                    `json:"thumbnail_key"`
+	SizeBytes          int64                     `json:"size_bytes"`
+	ThumbnailSizeBytes ent.Option[int64]         `json:"thumbnail_size_bytes,omitzero"`
+	Width              ent.Option[int]           `json:"width,omitzero"`
+	Height             ent.Option[int]           `json:"height,omitzero"`
+	TakenAt            ent.Option[time2.Time]    `json:"taken_at,omitzero"`
+	FavoritedBy        ent.Option[[]uuid.UUID]   `json:"favorited_by,omitzero"`
+	CoupleID           uuid.UUID                 `json:"couple_id"`
+	UploaderID         uuid.UUID                 `json:"uploader_id"`
+	CallID             ent.Option[uuid.UUID]     `json:"call_id,omitzero"`
+	CreatedAt          ent.Option[time2.Time]    `json:"created_at,omitzero"`
+	UpdatedAt          ent.Option[time2.Time]    `json:"updated_at,omitzero"`
+	expressions        map[string]func(*sql.Builder)
 }
 
 // PhotoPatch is the write representation of a Photo update.
 type PhotoPatch struct {
-	Status       ent.Option[photo2.Status] `json:"status,omitzero"`
-	StatusAdd    ent.Option[photo2.Status] `json:"status_add,omitzero"`
-	ContentType  ent.Option[string]        `json:"content_type,omitzero"`
-	SizeBytes    ent.Option[int64]         `json:"size_bytes,omitzero"`
-	SizeBytesAdd ent.Option[int64]         `json:"size_bytes_add,omitzero"`
-	Width        ent.Option[int]           `json:"width,omitzero"`
-	WidthAdd     ent.Option[int]           `json:"width_add,omitzero"`
-	Height       ent.Option[int]           `json:"height,omitzero"`
-	HeightAdd    ent.Option[int]           `json:"height_add,omitzero"`
-	TakenAt      ent.Option[time2.Time]    `json:"taken_at,omitzero"`
-	FavoritedBy  ent.Option[[]uuid.UUID]   `json:"favorited_by,omitzero"`
-	CoupleID     ent.Option[uuid.UUID]     `json:"couple_id,omitzero"`
-	CallID       ent.Option[uuid.UUID]     `json:"call_id,omitzero"`
-	UpdatedAt    ent.Option[time2.Time]    `json:"updated_at,omitzero"`
-	expressions  map[string]func(*sql.Builder)
-	clearedEdges map[string]bool
+	Status                ent.Option[photo2.Status] `json:"status,omitzero"`
+	StatusAdd             ent.Option[photo2.Status] `json:"status_add,omitzero"`
+	ContentType           ent.Option[string]        `json:"content_type,omitzero"`
+	SizeBytes             ent.Option[int64]         `json:"size_bytes,omitzero"`
+	SizeBytesAdd          ent.Option[int64]         `json:"size_bytes_add,omitzero"`
+	ThumbnailSizeBytes    ent.Option[int64]         `json:"thumbnail_size_bytes,omitzero"`
+	ThumbnailSizeBytesAdd ent.Option[int64]         `json:"thumbnail_size_bytes_add,omitzero"`
+	Width                 ent.Option[int]           `json:"width,omitzero"`
+	WidthAdd              ent.Option[int]           `json:"width_add,omitzero"`
+	Height                ent.Option[int]           `json:"height,omitzero"`
+	HeightAdd             ent.Option[int]           `json:"height_add,omitzero"`
+	TakenAt               ent.Option[time2.Time]    `json:"taken_at,omitzero"`
+	FavoritedBy           ent.Option[[]uuid.UUID]   `json:"favorited_by,omitzero"`
+	CoupleID              ent.Option[uuid.UUID]     `json:"couple_id,omitzero"`
+	CallID                ent.Option[uuid.UUID]     `json:"call_id,omitzero"`
+	UpdatedAt             ent.Option[time2.Time]    `json:"updated_at,omitzero"`
+	expressions           map[string]func(*sql.Builder)
+	clearedEdges          map[string]bool
 }
 
 func (i *PhotoInsert) set(column string, value any) error {
@@ -112,6 +115,16 @@ func (i *PhotoInsert) set(column string, value any) error {
 			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Photo", value, column)}
 		}
 		i.SizeBytes = v
+
+		delete(i.expressions, column)
+		return nil
+
+	case photo.FieldThumbnailSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Photo", value, column)}
+		}
+		i.ThumbnailSizeBytes = ent.Some(v)
 
 		delete(i.expressions, column)
 		return nil
@@ -341,6 +354,18 @@ func (i *PhotoPatch) set(column string, value any) error {
 		delete(i.expressions, column)
 		return nil
 
+	case photo.FieldThumbnailSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Photo", value, column)}
+		}
+		i.ThumbnailSizeBytes = ent.Some(v)
+
+		i.ThumbnailSizeBytesAdd = ent.Unset[int64]()
+
+		delete(i.expressions, column)
+		return nil
+
 	case photo.FieldWidth:
 		v, ok := value.(int)
 		if !ok {
@@ -534,6 +559,18 @@ func (p *PhotoPatch) add(column string, value any) error {
 		p.SizeBytesAdd = ent.Some(delta)
 		return nil
 
+	case photo.FieldThumbnailSizeBytes:
+		delta, ok := value.(int64)
+
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected addition type %T for field %q", value, column)}
+		}
+		if current, exists := p.ThumbnailSizeBytesAdd.Get(); exists {
+			delta += current
+		}
+		p.ThumbnailSizeBytesAdd = ent.Some(delta)
+		return nil
+
 	case photo.FieldWidth:
 		delta, ok := value.(int)
 
@@ -624,6 +661,18 @@ func (p *PhotoPatch) apply(other PhotoPatch) {
 			value += current
 		}
 		p.SizeBytesAdd = ent.Some(value)
+	}
+
+	if other.ThumbnailSizeBytes.IsSet() {
+		p.ThumbnailSizeBytes = other.ThumbnailSizeBytes
+		delete(p.expressions, photo.FieldThumbnailSizeBytes)
+	}
+
+	if value, ok := other.ThumbnailSizeBytesAdd.Get(); ok {
+		if current, exists := p.ThumbnailSizeBytesAdd.Get(); exists {
+			value += current
+		}
+		p.ThumbnailSizeBytesAdd = ent.Some(value)
 	}
 
 	if other.Width.IsSet() {

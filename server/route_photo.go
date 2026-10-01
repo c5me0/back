@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) routePhoto(r chi.Router) {
-	h := photo.NewHandler(s.db, s.storage)
+	h := photo.NewHandler(s.db, s.storage, s.purchase)
 
 	r.Post("/photos/upload-url", ro.Handle(h.UploadURL, ro.WithStatus(http.StatusCreated)))
 	r.Post("/photos/{id}/complete", ro.HandleOut(h.Complete))

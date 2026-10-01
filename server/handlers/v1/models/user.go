@@ -14,11 +14,13 @@ type Partner struct {
 	DisplayName *string   `json:"display_name"`
 }
 
-// Premium is the couple's premium entitlement. Source is "self", "partner" or "none".
-type Premium struct {
-	Active bool       `json:"active"`
-	Until  *time.Time `json:"until"`
-	Source string     `json:"source"`
+// Storage is the couple's storage usage and quota. QuotaBytes is null when unlimited; Source is "self", "partner" or "none".
+type Storage struct {
+	UsedBytes  int64      `json:"used_bytes"`
+	QuotaBytes *int64     `json:"quota_bytes"`
+	Tier       *string    `json:"tier"`
+	Source     string     `json:"source"`
+	Until      *time.Time `json:"until"`
 }
 
 type User struct {
@@ -29,7 +31,7 @@ type User struct {
 	CallAlert      bool      `json:"call_alert"`
 	HighlightAlert bool      `json:"highlight_alert"`
 	Partner        *Partner  `json:"partner"`
-	Premium        Premium   `json:"premium"`
+	Storage        Storage   `json:"storage"`
 	RestoreCredits int       `json:"restore_credits"`
 	CreatedAt      time.Time `json:"created_at"`
 }
@@ -43,10 +45,12 @@ func FromUser(u *ent.User, partner *ent.User, status purchase.Status) User {
 		PairingCode:    u.PairingCode,
 		CallAlert:      u.CallAlert,
 		HighlightAlert: u.HighlightAlert,
-		Premium: Premium{
-			Active: status.PremiumActive,
-			Until:  status.PremiumUntil,
-			Source: status.PremiumSource,
+		Storage: Storage{
+			UsedBytes:  status.Storage.UsedBytes,
+			QuotaBytes: status.Storage.QuotaBytes,
+			Tier:       status.Storage.Tier,
+			Source:     status.Storage.Source,
+			Until:      status.Storage.Until,
 		},
 		RestoreCredits: status.RestoreCredits(),
 		CreatedAt:      u.CreatedAt,

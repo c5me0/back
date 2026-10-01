@@ -19,5 +19,5 @@ func (s *Server) routeCouple(r chi.Router) {
 		Post("/couple", ro.Handle(h.Connect, ro.WithStatus(http.StatusCreated)))
 	r.Delete("/couple", ro.HandleNone(h.Disconnect))
 	r.Post("/couple/code", ro.HandleOut(h.RegenerateCode))
-	r.With(s.purchase.Middleware).Post("/couple/restore", ro.HandleOut(h.Restore))
+	r.Post("/couple/restore", ro.HandleOut(h.Restore))
 }

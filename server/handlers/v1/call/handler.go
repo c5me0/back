@@ -11,6 +11,7 @@ import (
 	entUser "cameo/internal/ent/user"
 	"cameo/internal/protocol"
 	callService "cameo/server/services/call"
+	"cameo/server/services/purchase"
 	"cameo/server/services/push"
 	"cameo/server/services/request_context"
 	"cameo/server/services/storage"
@@ -28,11 +29,12 @@ type Handler struct {
 	storage    *storage.Service
 	push       *push.Service
 	call       *callService.Service
+	purchase   *purchase.Service
 	iceServers []config.ICEServer
 }
 
-func NewHandler(db *ent.Client, storage *storage.Service, push *push.Service, call *callService.Service, iceServers []config.ICEServer) *Handler {
-	return &Handler{db: db, storage: storage, push: push, call: call, iceServers: iceServers}
+func NewHandler(db *ent.Client, storage *storage.Service, push *push.Service, call *callService.Service, purchase *purchase.Service, iceServers []config.ICEServer) *Handler {
+	return &Handler{db: db, storage: storage, push: push, call: call, purchase: purchase, iceServers: iceServers}
 }
 
 // currentUser loads the authenticated user, or returns couple:not_connected when they have no partner.

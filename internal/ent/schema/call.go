@@ -29,6 +29,7 @@ func (Call) Fields() []ent.Field {
 		field.String("title").Optional().Nillable(),
 		field.String("summary").Optional().Nillable(),
 		field.String("recording_key").Optional().Nillable(),
+		field.Int64("recording_bytes").Default(0),
 		field.Array[[]uuid.UUID]("favorited_by").Default([]uuid.UUID{}),
 		field.Time("started_at").Optional().Nillable(),
 		field.Time("ended_at").Optional().Nillable(),

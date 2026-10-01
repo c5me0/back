@@ -90,7 +90,7 @@ func (s *Server) init(ctx context.Context) error {
 	}
 
 	s.purchase = purchase.New(s.config, s.db, s.logger)
-	s.logger.Info().Str("component", "purchase").Bool("enabled", s.purchase.Enabled()).Msg("purchase service configured")
+	s.logger.Info().Str("component", "purchase").Bool("enabled", s.purchase.Enabled()).Bool("quota", s.config.Quota != nil).Msg("purchase service configured")
 
 	s.transcript = transcript.New(s.db, s.storage, s.push, s.config, s.logger)
 

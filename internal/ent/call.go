@@ -34,6 +34,8 @@ type Call struct {
 	Summary *string `json:"summary,omitempty"`
 	// RecordingKey holds the value of the "recording_key" field.
 	RecordingKey *string `json:"recording_key,omitempty"`
+	// RecordingBytes holds the value of the "recording_bytes" field.
+	RecordingBytes int64 `json:"recording_bytes,omitempty"`
 	// FavoritedBy holds the value of the "favorited_by" field.
 	FavoritedBy []uuid.UUID `json:"favorited_by,omitempty"`
 	// StartedAt holds the value of the "started_at" field.
@@ -176,6 +178,8 @@ func (*Call) scanValues(columns []string) ([]any, error) {
 			values[i] = new(*call2.Status)
 		case call.FieldTranscriptStatus:
 			values[i] = new(*call2.TranscriptStatus)
+		case call.FieldRecordingBytes:
+			values[i] = new(*int64)
 		case call.FieldTitle, call.FieldSummary, call.FieldRecordingKey:
 			values[i] = new(*string)
 		case call.FieldStartedAt, call.FieldEndedAt, call.FieldCreatedAt, call.FieldUpdatedAt:
@@ -239,6 +243,13 @@ func (_m *Call) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field recording_key", values[i])
 			} else if value != nil && *value != nil {
 				_m.RecordingKey = *value
+			}
+		case call.FieldRecordingBytes:
+
+			if value, ok := values[i].(**int64); !ok {
+				return fmt.Errorf("unexpected type %T for field recording_bytes", values[i])
+			} else if value != nil && *value != nil {
+				_m.RecordingBytes = **value
 			}
 		case call.FieldFavoritedBy:
 
@@ -374,6 +385,9 @@ func (_m *Call) String() string {
 		builder.WriteString("recording_key=")
 		builder.WriteString(*v)
 	}
+	builder.WriteString(", ")
+	builder.WriteString("recording_bytes=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RecordingBytes))
 	builder.WriteString(", ")
 	builder.WriteString("favorited_by=")
 	builder.WriteString(fmt.Sprintf("%v", _m.FavoritedBy))

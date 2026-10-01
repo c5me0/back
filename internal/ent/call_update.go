@@ -65,6 +65,8 @@ func (b *CallUpdate) SetExpr[T any](column ent.ColumnOf[entity.Call, T], value e
 
 	case call.FieldRecordingKey:
 
+	case call.FieldRecordingBytes:
+
 	case call.FieldFavoritedBy:
 
 	case call.FieldStartedAt:
@@ -239,6 +241,10 @@ func (b *CallUpdate) check() error {
 
 	}
 
+	if b.mutation.patch.RecordingBytes.IsNull() {
+		return &ValidationError{Name: "recording_bytes", err: errors.New(`ent: field "Call.recording_bytes" is not nullable`)}
+	}
+
 	if b.mutation.patch.FavoritedBy.IsNull() {
 		return &ValidationError{Name: "favorited_by", err: errors.New(`ent: field "Call.favorited_by" is not nullable`)}
 	}
@@ -305,6 +311,12 @@ func (_u *CallUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.patch.RecordingKey.IsNull() {
 		_spec.ClearField(call.FieldRecordingKey, field.TypeString)
+	}
+	if value, ok := _u.mutation.patch.RecordingBytes.Get(); ok {
+		_spec.SetField(call.FieldRecordingBytes, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.patch.RecordingBytesAdd.Get(); ok {
+		_spec.AddField(call.FieldRecordingBytes, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.patch.FavoritedBy.Get(); ok {
 		_spec.SetField(call.FieldFavoritedBy, field.TypeArray, value)
@@ -542,6 +554,8 @@ func (b *CallUpdateOne) SetExpr[T any](column ent.ColumnOf[entity.Call, T], valu
 
 	case call.FieldRecordingKey:
 
+	case call.FieldRecordingBytes:
+
 	case call.FieldFavoritedBy:
 
 	case call.FieldStartedAt:
@@ -717,6 +731,10 @@ func (b *CallUpdateOne) check() error {
 
 	}
 
+	if b.mutation.patch.RecordingBytes.IsNull() {
+		return &ValidationError{Name: "recording_bytes", err: errors.New(`ent: field "Call.recording_bytes" is not nullable`)}
+	}
+
 	if b.mutation.patch.FavoritedBy.IsNull() {
 		return &ValidationError{Name: "favorited_by", err: errors.New(`ent: field "Call.favorited_by" is not nullable`)}
 	}
@@ -800,6 +818,12 @@ func (_u *CallUpdateOne) sqlSave(ctx context.Context) (_node *Call, err error) {
 	}
 	if _u.mutation.patch.RecordingKey.IsNull() {
 		_spec.ClearField(call.FieldRecordingKey, field.TypeString)
+	}
+	if value, ok := _u.mutation.patch.RecordingBytes.Get(); ok {
+		_spec.SetField(call.FieldRecordingBytes, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.patch.RecordingBytesAdd.Get(); ok {
+		_spec.AddField(call.FieldRecordingBytes, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.patch.FavoritedBy.Get(); ok {
 		_spec.SetField(call.FieldFavoritedBy, field.TypeArray, value)

@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) routeCall(r chi.Router) {
-	h := call.NewHandler(s.db, s.storage, s.push, s.call, s.config.WebRTC.ICEServers)
+	h := call.NewHandler(s.db, s.storage, s.push, s.call, s.purchase, s.config.WebRTC.ICEServers)
 
 	r.Post("/calls", ro.HandleOut(h.Create, ro.WithStatus(http.StatusCreated)))
 	r.Get("/calls", ro.Handle(h.List))

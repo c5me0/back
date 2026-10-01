@@ -40,3 +40,8 @@ const (
 const (
 	PurchaseRequired = "purchase:required"
 )
+
+// Storage errors
+const (
+	StorageQuotaExceeded = "storage:quota_exceeded"
+)

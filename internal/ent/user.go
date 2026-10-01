@@ -31,8 +31,10 @@ type User struct {
 	CallAlert bool `json:"call_alert,omitempty"`
 	// HighlightAlert holds the value of the "highlight_alert" field.
 	HighlightAlert bool `json:"highlight_alert,omitempty"`
-	// PremiumUntil holds the value of the "premium_until" field.
-	PremiumUntil *time2.Time `json:"premium_until,omitempty"`
+	// StorageEntitlement holds the value of the "storage_entitlement" field.
+	StorageEntitlement *string `json:"storage_entitlement,omitempty"`
+	// StorageUntil holds the value of the "storage_until" field.
+	StorageUntil *time2.Time `json:"storage_until,omitempty"`
 	// RestoreTransactionIDs holds the value of the "restore_transaction_ids" field.
 	RestoreTransactionIDs []string `json:"restore_transaction_ids,omitempty"`
 	// PurchasesSyncedAt holds the value of the "purchases_synced_at" field.
@@ -193,9 +195,9 @@ func (*User) scanValues(columns []string) ([]any, error) {
 			values[i] = new(*[]string)
 		case user.FieldCallAlert, user.FieldHighlightAlert:
 			values[i] = new(*bool)
-		case user.FieldPhone, user.FieldDisplayName, user.FieldPairingCode:
+		case user.FieldPhone, user.FieldDisplayName, user.FieldPairingCode, user.FieldStorageEntitlement:
 			values[i] = new(*string)
-		case user.FieldPremiumUntil, user.FieldPurchasesSyncedAt, user.FieldCreatedAt, user.FieldUpdatedAt:
+		case user.FieldStorageUntil, user.FieldPurchasesSyncedAt, user.FieldCreatedAt, user.FieldUpdatedAt:
 			values[i] = new(*time2.Time)
 		case user.FieldID:
 			values[i] = new(uuid.UUID)
@@ -255,12 +257,19 @@ func (_m *User) assignValues(columns []string, values []any) error {
 			} else if value != nil && *value != nil {
 				_m.HighlightAlert = **value
 			}
-		case user.FieldPremiumUntil:
+		case user.FieldStorageEntitlement:
+
+			if value, ok := values[i].(**string); !ok {
+				return fmt.Errorf("unexpected type %T for field storage_entitlement", values[i])
+			} else if value != nil && *value != nil {
+				_m.StorageEntitlement = *value
+			}
+		case user.FieldStorageUntil:
 
 			if value, ok := values[i].(**time2.Time); !ok {
-				return fmt.Errorf("unexpected type %T for field premium_until", values[i])
+				return fmt.Errorf("unexpected type %T for field storage_until", values[i])
 			} else if value != nil && *value != nil {
-				_m.PremiumUntil = *value
+				_m.StorageUntil = *value
 			}
 		case user.FieldRestoreTransactionIDs:
 
@@ -377,8 +386,13 @@ func (_m *User) String() string {
 	builder.WriteString("highlight_alert=")
 	builder.WriteString(fmt.Sprintf("%v", _m.HighlightAlert))
 	builder.WriteString(", ")
-	if v := _m.PremiumUntil; v != nil {
-		builder.WriteString("premium_until=")
+	if v := _m.StorageEntitlement; v != nil {
+		builder.WriteString("storage_entitlement=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.StorageUntil; v != nil {
+		builder.WriteString("storage_until=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
 	builder.WriteString(", ")

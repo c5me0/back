@@ -28,6 +28,8 @@ const (
 	FieldSummary = "summary"
 	// FieldRecordingKey holds the string denoting the recording_key field in the database.
 	FieldRecordingKey = "recording_key"
+	// FieldRecordingBytes holds the string denoting the recording_bytes field in the database.
+	FieldRecordingBytes = "recording_bytes"
 	// FieldFavoritedBy holds the string denoting the favorited_by field in the database.
 	FieldFavoritedBy = "favorited_by"
 	// FieldStartedAt holds the string denoting the started_at field in the database.
@@ -102,6 +104,7 @@ var (
 	Title            = ent.StringColumn[entity.Call, string]{Table: Table, Name: FieldTitle}
 	Summary          = ent.StringColumn[entity.Call, string]{Table: Table, Name: FieldSummary}
 	RecordingKey     = ent.StringColumn[entity.Call, string]{Table: Table, Name: FieldRecordingKey}
+	RecordingBytes   = ent.OrderedColumn[entity.Call, int64]{Table: Table, Name: FieldRecordingBytes}
 	FavoritedBy      = ent.ArrayColumn[entity.Call, uuid.UUID]{Table: Table, Name: FieldFavoritedBy}
 	StartedAt        = ent.OrderedColumn[entity.Call, time2.Time]{Table: Table, Name: FieldStartedAt}
 	EndedAt          = ent.OrderedColumn[entity.Call, time2.Time]{Table: Table, Name: FieldEndedAt}
@@ -128,6 +131,7 @@ func Alias(name string) AliasedTable {
 		Title:            ent.StringColumn[entity.Call, string]{Table: name, Name: FieldTitle},
 		Summary:          ent.StringColumn[entity.Call, string]{Table: name, Name: FieldSummary},
 		RecordingKey:     ent.StringColumn[entity.Call, string]{Table: name, Name: FieldRecordingKey},
+		RecordingBytes:   ent.OrderedColumn[entity.Call, int64]{Table: name, Name: FieldRecordingBytes},
 		FavoritedBy:      ent.ArrayColumn[entity.Call, uuid.UUID]{Table: name, Name: FieldFavoritedBy},
 		StartedAt:        ent.OrderedColumn[entity.Call, time2.Time]{Table: name, Name: FieldStartedAt},
 		EndedAt:          ent.OrderedColumn[entity.Call, time2.Time]{Table: name, Name: FieldEndedAt},
@@ -149,6 +153,7 @@ type AliasedTable struct {
 	Title            ent.StringColumn[entity.Call, string]
 	Summary          ent.StringColumn[entity.Call, string]
 	RecordingKey     ent.StringColumn[entity.Call, string]
+	RecordingBytes   ent.OrderedColumn[entity.Call, int64]
 	FavoritedBy      ent.ArrayColumn[entity.Call, uuid.UUID]
 	StartedAt        ent.OrderedColumn[entity.Call, time2.Time]
 	EndedAt          ent.OrderedColumn[entity.Call, time2.Time]
@@ -181,6 +186,7 @@ var Columns = []string{
 	FieldTitle,
 	FieldSummary,
 	FieldRecordingKey,
+	FieldRecordingBytes,
 	FieldFavoritedBy,
 	FieldStartedAt,
 	FieldEndedAt,
@@ -207,6 +213,8 @@ var (
 	DefaultStatus func() call2.Status
 	// DefaultTranscriptStatus holds the default value on creation for the "transcript_status" field.
 	DefaultTranscriptStatus func() call2.TranscriptStatus
+	// DefaultRecordingBytes holds the default value on creation for the "recording_bytes" field.
+	DefaultRecordingBytes int64
 	// DefaultFavoritedBy holds the default value on creation for the "favorited_by" field.
 	DefaultFavoritedBy []uuid.UUID
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.

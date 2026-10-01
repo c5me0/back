@@ -21,7 +21,8 @@ type UserInsert struct {
 	PairingCode           string                 `json:"pairing_code"`
 	CallAlert             ent.Option[bool]       `json:"call_alert,omitzero"`
 	HighlightAlert        ent.Option[bool]       `json:"highlight_alert,omitzero"`
-	PremiumUntil          ent.Option[time2.Time] `json:"premium_until,omitzero"`
+	StorageEntitlement    ent.Option[string]     `json:"storage_entitlement,omitzero"`
+	StorageUntil          ent.Option[time2.Time] `json:"storage_until,omitzero"`
 	RestoreTransactionIDs ent.Option[[]string]   `json:"restore_transaction_ids,omitzero"`
 	PurchasesSyncedAt     ent.Option[time2.Time] `json:"purchases_synced_at,omitzero"`
 	CoupleID              ent.Option[uuid.UUID]  `json:"couple_id,omitzero"`
@@ -42,7 +43,8 @@ type UserPatch struct {
 	PairingCode           ent.Option[string]           `json:"pairing_code,omitzero"`
 	CallAlert             ent.Option[bool]             `json:"call_alert,omitzero"`
 	HighlightAlert        ent.Option[bool]             `json:"highlight_alert,omitzero"`
-	PremiumUntil          ent.Option[time2.Time]       `json:"premium_until,omitzero"`
+	StorageEntitlement    ent.Option[string]           `json:"storage_entitlement,omitzero"`
+	StorageUntil          ent.Option[time2.Time]       `json:"storage_until,omitzero"`
 	RestoreTransactionIDs ent.Option[[]string]         `json:"restore_transaction_ids,omitzero"`
 	PurchasesSyncedAt     ent.Option[time2.Time]       `json:"purchases_synced_at,omitzero"`
 	CoupleID              ent.Option[uuid.UUID]        `json:"couple_id,omitzero"`
@@ -120,12 +122,22 @@ func (i *UserInsert) set(column string, value any) error {
 		delete(i.expressions, column)
 		return nil
 
-	case user.FieldPremiumUntil:
+	case user.FieldStorageEntitlement:
+		v, ok := value.(string)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of User", value, column)}
+		}
+		i.StorageEntitlement = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldStorageUntil:
 		v, ok := value.(time2.Time)
 		if !ok {
 			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of User", value, column)}
 		}
-		i.PremiumUntil = ent.Some(v)
+		i.StorageUntil = ent.Some(v)
 
 		delete(i.expressions, column)
 		return nil
@@ -193,8 +205,14 @@ func (i *UserInsert) setNull(column string) error {
 		delete(i.expressions, column)
 		return nil
 
-	case user.FieldPremiumUntil:
-		i.PremiumUntil = ent.Null[time2.Time]()
+	case user.FieldStorageEntitlement:
+		i.StorageEntitlement = ent.Null[string]()
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldStorageUntil:
+		i.StorageUntil = ent.Null[time2.Time]()
 
 		delete(i.expressions, column)
 		return nil
@@ -379,12 +397,22 @@ func (i *UserPatch) set(column string, value any) error {
 		delete(i.expressions, column)
 		return nil
 
-	case user.FieldPremiumUntil:
+	case user.FieldStorageEntitlement:
+		v, ok := value.(string)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of User", value, column)}
+		}
+		i.StorageEntitlement = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldStorageUntil:
 		v, ok := value.(time2.Time)
 		if !ok {
 			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of User", value, column)}
 		}
-		i.PremiumUntil = ent.Some(v)
+		i.StorageUntil = ent.Some(v)
 
 		delete(i.expressions, column)
 		return nil
@@ -442,8 +470,14 @@ func (i *UserPatch) setNull(column string) error {
 		delete(i.expressions, column)
 		return nil
 
-	case user.FieldPremiumUntil:
-		i.PremiumUntil = ent.Null[time2.Time]()
+	case user.FieldStorageEntitlement:
+		i.StorageEntitlement = ent.Null[string]()
+
+		delete(i.expressions, column)
+		return nil
+
+	case user.FieldStorageUntil:
+		i.StorageUntil = ent.Null[time2.Time]()
 
 		delete(i.expressions, column)
 		return nil
@@ -739,9 +773,14 @@ func (p *UserPatch) apply(other UserPatch) {
 		delete(p.expressions, user.FieldHighlightAlert)
 	}
 
-	if other.PremiumUntil.IsSet() {
-		p.PremiumUntil = other.PremiumUntil
-		delete(p.expressions, user.FieldPremiumUntil)
+	if other.StorageEntitlement.IsSet() {
+		p.StorageEntitlement = other.StorageEntitlement
+		delete(p.expressions, user.FieldStorageEntitlement)
+	}
+
+	if other.StorageUntil.IsSet() {
+		p.StorageUntil = other.StorageUntil
+		delete(p.expressions, user.FieldStorageUntil)
 	}
 
 	if other.RestoreTransactionIDs.IsSet() {

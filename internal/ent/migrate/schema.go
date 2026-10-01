@@ -17,6 +17,7 @@ var (
 		{Name: "title", Type: field.TypeString, Nullable: true},
 		{Name: "summary", Type: field.TypeString, Nullable: true},
 		{Name: "recording_key", Type: field.TypeString, Nullable: true},
+		{Name: "recording_bytes", Type: field.TypeInt64, Default: 0},
 		{Name: "favorited_by", Type: field.TypeArray, SchemaType: map[string]string{"postgres": "uuid[]", "sqlite3": "json"}},
 		{Name: "started_at", Type: field.TypeTime, Nullable: true},
 		{Name: "ended_at", Type: field.TypeTime, Nullable: true},
@@ -35,19 +36,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "calls_couples_calls",
-				Columns:    []*schema.Column{CallsColumns[12]},
+				Columns:    []*schema.Column{CallsColumns[13]},
 				RefColumns: []*schema.Column{CouplesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "calls_users_outgoing_calls",
-				Columns:    []*schema.Column{CallsColumns[13]},
+				Columns:    []*schema.Column{CallsColumns[14]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "calls_users_incoming_calls",
-				Columns:    []*schema.Column{CallsColumns[14]},
+				Columns:    []*schema.Column{CallsColumns[15]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -56,10 +57,10 @@ var (
 			{
 				Name:    "idx_call_list",
 				Unique:  false,
-				Columns: []*schema.Column{CallsColumns[12], CallsColumns[10], CallsColumns[0]},
+				Columns: []*schema.Column{CallsColumns[13], CallsColumns[11], CallsColumns[0]},
 				Annotation: &entsql.IndexAnnotation{
 					DescColumns: map[string]bool{
-						CallsColumns[10].Name: true,
+						CallsColumns[11].Name: true,
 
 						CallsColumns[0].Name: true,
 					},
@@ -68,7 +69,7 @@ var (
 			{
 				Name:    "idx_call_live",
 				Unique:  true,
-				Columns: []*schema.Column{CallsColumns[12]},
+				Columns: []*schema.Column{CallsColumns[13]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "status IN (0, 1)",
 				},
@@ -187,6 +188,7 @@ var (
 		{Name: "object_key", Type: field.TypeString},
 		{Name: "thumbnail_key", Type: field.TypeString},
 		{Name: "size_bytes", Type: field.TypeInt64},
+		{Name: "thumbnail_size_bytes", Type: field.TypeInt64, Default: 0},
 		{Name: "width", Type: field.TypeInt, Nullable: true},
 		{Name: "height", Type: field.TypeInt, Nullable: true},
 		{Name: "taken_at", Type: field.TypeTime, Nullable: true},
@@ -205,19 +207,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "photos_calls_photos",
-				Columns:    []*schema.Column{PhotosColumns[12]},
+				Columns:    []*schema.Column{PhotosColumns[13]},
 				RefColumns: []*schema.Column{CallsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "photos_couples_photos",
-				Columns:    []*schema.Column{PhotosColumns[13]},
+				Columns:    []*schema.Column{PhotosColumns[14]},
 				RefColumns: []*schema.Column{CouplesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "photos_users_photos",
-				Columns:    []*schema.Column{PhotosColumns[14]},
+				Columns:    []*schema.Column{PhotosColumns[15]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -226,10 +228,10 @@ var (
 			{
 				Name:    "idx_photo_list",
 				Unique:  false,
-				Columns: []*schema.Column{PhotosColumns[13], PhotosColumns[10], PhotosColumns[0]},
+				Columns: []*schema.Column{PhotosColumns[14], PhotosColumns[11], PhotosColumns[0]},
 				Annotation: &entsql.IndexAnnotation{
 					DescColumns: map[string]bool{
-						PhotosColumns[10].Name: true,
+						PhotosColumns[11].Name: true,
 
 						PhotosColumns[0].Name: true,
 					},
@@ -238,7 +240,7 @@ var (
 			{
 				Name:    "photo_call_id",
 				Unique:  false,
-				Columns: []*schema.Column{PhotosColumns[12]},
+				Columns: []*schema.Column{PhotosColumns[13]},
 			},
 		},
 	}
@@ -279,7 +281,8 @@ var (
 		{Name: "pairing_code", Type: field.TypeString},
 		{Name: "call_alert", Type: field.TypeBool, Default: true},
 		{Name: "highlight_alert", Type: field.TypeBool, Default: true},
-		{Name: "premium_until", Type: field.TypeTime, Nullable: true},
+		{Name: "storage_entitlement", Type: field.TypeString, Nullable: true},
+		{Name: "storage_until", Type: field.TypeTime, Nullable: true},
 		{Name: "restore_transaction_ids", Type: field.TypeArray, Default: "{}", SchemaType: map[string]string{"postgres": "text[]", "sqlite3": "json"}},
 		{Name: "purchases_synced_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
@@ -294,7 +297,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "users_couples_members",
-				Columns:    []*schema.Column{UsersColumns[11]},
+				Columns:    []*schema.Column{UsersColumns[12]},
 				RefColumns: []*schema.Column{CouplesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

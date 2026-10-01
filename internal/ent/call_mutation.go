@@ -22,6 +22,7 @@ type CallInsert struct {
 	Title            ent.Option[string]                 `json:"title,omitzero"`
 	Summary          ent.Option[string]                 `json:"summary,omitzero"`
 	RecordingKey     ent.Option[string]                 `json:"recording_key,omitzero"`
+	RecordingBytes   ent.Option[int64]                  `json:"recording_bytes,omitzero"`
 	FavoritedBy      ent.Option[[]uuid.UUID]            `json:"favorited_by,omitzero"`
 	StartedAt        ent.Option[time2.Time]             `json:"started_at,omitzero"`
 	EndedAt          ent.Option[time2.Time]             `json:"ended_at,omitzero"`
@@ -45,6 +46,8 @@ type CallPatch struct {
 	Title               ent.Option[string]                 `json:"title,omitzero"`
 	Summary             ent.Option[string]                 `json:"summary,omitzero"`
 	RecordingKey        ent.Option[string]                 `json:"recording_key,omitzero"`
+	RecordingBytes      ent.Option[int64]                  `json:"recording_bytes,omitzero"`
+	RecordingBytesAdd   ent.Option[int64]                  `json:"recording_bytes_add,omitzero"`
 	FavoritedBy         ent.Option[[]uuid.UUID]            `json:"favorited_by,omitzero"`
 	StartedAt           ent.Option[time2.Time]             `json:"started_at,omitzero"`
 	EndedAt             ent.Option[time2.Time]             `json:"ended_at,omitzero"`
@@ -117,6 +120,16 @@ func (i *CallInsert) set(column string, value any) error {
 			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Call", value, column)}
 		}
 		i.RecordingKey = ent.Some(v)
+
+		delete(i.expressions, column)
+		return nil
+
+	case call.FieldRecordingBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Call", value, column)}
+		}
+		i.RecordingBytes = ent.Some(v)
 
 		delete(i.expressions, column)
 		return nil
@@ -403,6 +416,18 @@ func (i *CallPatch) set(column string, value any) error {
 		delete(i.expressions, column)
 		return nil
 
+	case call.FieldRecordingBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected type %T for field %q of Call", value, column)}
+		}
+		i.RecordingBytes = ent.Some(v)
+
+		i.RecordingBytesAdd = ent.Unset[int64]()
+
+		delete(i.expressions, column)
+		return nil
+
 	case call.FieldFavoritedBy:
 		v, ok := value.([]uuid.UUID)
 		if !ok {
@@ -608,6 +633,18 @@ func (p *CallPatch) add(column string, value any) error {
 		p.TranscriptStatusAdd = ent.Some(delta)
 		return nil
 
+	case call.FieldRecordingBytes:
+		delta, ok := value.(int64)
+
+		if !ok {
+			return &ValidationError{Name: column, err: fmt.Errorf("ent: unexpected addition type %T for field %q", value, column)}
+		}
+		if current, exists := p.RecordingBytesAdd.Get(); exists {
+			delta += current
+		}
+		p.RecordingBytesAdd = ent.Some(delta)
+		return nil
+
 	}
 	return &ValidationError{Name: column, err: fmt.Errorf("ent: field %q of Call does not support addition", column)}
 }
@@ -714,6 +751,18 @@ func (p *CallPatch) apply(other CallPatch) {
 	if other.RecordingKey.IsSet() {
 		p.RecordingKey = other.RecordingKey
 		delete(p.expressions, call.FieldRecordingKey)
+	}
+
+	if other.RecordingBytes.IsSet() {
+		p.RecordingBytes = other.RecordingBytes
+		delete(p.expressions, call.FieldRecordingBytes)
+	}
+
+	if value, ok := other.RecordingBytesAdd.Get(); ok {
+		if current, exists := p.RecordingBytesAdd.Get(); exists {
+			value += current
+		}
+		p.RecordingBytesAdd = ent.Some(value)
 	}
 
 	if other.FavoritedBy.IsSet() {

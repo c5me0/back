@@ -129,18 +129,22 @@ func (s *Service) run(ctx context.Context, callID uuid.UUID, logger zerolog.Logg
 		}
 	}
 
+	mixed, err := os.Stat(mixedPath)
+	if err != nil {
+		return fmt.Errorf("stat mixed recording: %w", err)
+	}
+
+	// Only the mixed recording is stored; the per-participant tracks stay local for transcription.
 	prefix := fmt.Sprintf("calls/%s/%s/", row.CoupleID, row.ID)
 	mixedKey := prefix + "mixed.m4a"
 	if err = s.storage.FPut(ctx, mixedKey, mixedPath, audioContentType); err != nil {
 		return fmt.Errorf("upload mixed recording: %w", err)
 	}
-	for i, t := range tracks {
-		if err = s.storage.FPut(ctx, prefix+t.userID.String()+".m4a", userPaths[i], audioContentType); err != nil {
-			return fmt.Errorf("upload track of %s: %w", t.userID, err)
-		}
-	}
 
-	err = s.db.Call.UpdateOneID(callID).Apply(ent.CallPatch{RecordingKey: ent.Some(mixedKey)}).Exec(ctx)
+	err = s.db.Call.UpdateOneID(callID).Apply(ent.CallPatch{
+		RecordingKey:   ent.Some(mixedKey),
+		RecordingBytes: ent.Some(mixed.Size()),
+	}).Exec(ctx)
 	if ent.IsNotFound(err) {
 		s.discard(ctx, prefix, dir, logger)
 		return nil
@@ -148,7 +152,7 @@ func (s *Service) run(ctx context.Context, callID uuid.UUID, logger zerolog.Logg
 	if err != nil {
 		return fmt.Errorf("set recording key: %w", err)
 	}
-	logger.Info().Str("recording_key", mixedKey).Int("tracks", len(tracks)).Msg("recording uploaded")
+	logger.Info().Str("recording_key", mixedKey).Int64("recording_bytes", mixed.Size()).Int("tracks", len(tracks)).Msg("recording uploaded")
 
 	if s.client == nil {
 		err = s.db.Call.UpdateOneID(callID).Apply(ent.CallPatch{TranscriptStatus: ent.Some(call.TranscriptStatusSkipped)}).Exec(ctx)

@@ -36,6 +36,7 @@ type Config struct {
 	OpenAI     *OpenAI     `json:"openai" config:"optional"`
 	Push       *Push       `json:"push" config:"optional"`
 	RevenueCat *RevenueCat `json:"revenuecat" config:"optional"`
+	Quota      *Quota      `json:"quota" config:"optional"`
 }
 
 // Level returns the parsed zerolog level from LogLevel, defaulting to InfoLevel

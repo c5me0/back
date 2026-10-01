@@ -26,8 +26,10 @@ const (
 	FieldCallAlert = "call_alert"
 	// FieldHighlightAlert holds the string denoting the highlight_alert field in the database.
 	FieldHighlightAlert = "highlight_alert"
-	// FieldPremiumUntil holds the string denoting the premium_until field in the database.
-	FieldPremiumUntil = "premium_until"
+	// FieldStorageEntitlement holds the string denoting the storage_entitlement field in the database.
+	FieldStorageEntitlement = "storage_entitlement"
+	// FieldStorageUntil holds the string denoting the storage_until field in the database.
+	FieldStorageUntil = "storage_until"
 	// FieldRestoreTransactionIDs holds the string denoting the restore_transaction_ids field in the database.
 	FieldRestoreTransactionIDs = "restore_transaction_ids"
 	// FieldPurchasesSyncedAt holds the string denoting the purchases_synced_at field in the database.
@@ -112,7 +114,8 @@ var (
 	PairingCode           = ent.StringColumn[entity.User, string]{Table: Table, Name: FieldPairingCode}
 	CallAlert             = ent.Column[entity.User, bool]{Table: Table, Name: FieldCallAlert}
 	HighlightAlert        = ent.Column[entity.User, bool]{Table: Table, Name: FieldHighlightAlert}
-	PremiumUntil          = ent.OrderedColumn[entity.User, time2.Time]{Table: Table, Name: FieldPremiumUntil}
+	StorageEntitlement    = ent.StringColumn[entity.User, string]{Table: Table, Name: FieldStorageEntitlement}
+	StorageUntil          = ent.OrderedColumn[entity.User, time2.Time]{Table: Table, Name: FieldStorageUntil}
 	RestoreTransactionIDs = ent.ArrayColumn[entity.User, string]{Table: Table, Name: FieldRestoreTransactionIDs}
 	PurchasesSyncedAt     = ent.OrderedColumn[entity.User, time2.Time]{Table: Table, Name: FieldPurchasesSyncedAt}
 	CoupleID              = ent.OrderedColumn[entity.User, uuid.UUID]{Table: Table, Name: FieldCoupleID}
@@ -137,7 +140,8 @@ func Alias(name string) AliasedTable {
 		PairingCode:           ent.StringColumn[entity.User, string]{Table: name, Name: FieldPairingCode},
 		CallAlert:             ent.Column[entity.User, bool]{Table: name, Name: FieldCallAlert},
 		HighlightAlert:        ent.Column[entity.User, bool]{Table: name, Name: FieldHighlightAlert},
-		PremiumUntil:          ent.OrderedColumn[entity.User, time2.Time]{Table: name, Name: FieldPremiumUntil},
+		StorageEntitlement:    ent.StringColumn[entity.User, string]{Table: name, Name: FieldStorageEntitlement},
+		StorageUntil:          ent.OrderedColumn[entity.User, time2.Time]{Table: name, Name: FieldStorageUntil},
 		RestoreTransactionIDs: ent.ArrayColumn[entity.User, string]{Table: name, Name: FieldRestoreTransactionIDs},
 		PurchasesSyncedAt:     ent.OrderedColumn[entity.User, time2.Time]{Table: name, Name: FieldPurchasesSyncedAt},
 		CoupleID:              ent.OrderedColumn[entity.User, uuid.UUID]{Table: name, Name: FieldCoupleID},
@@ -155,7 +159,8 @@ type AliasedTable struct {
 	PairingCode           ent.StringColumn[entity.User, string]
 	CallAlert             ent.Column[entity.User, bool]
 	HighlightAlert        ent.Column[entity.User, bool]
-	PremiumUntil          ent.OrderedColumn[entity.User, time2.Time]
+	StorageEntitlement    ent.StringColumn[entity.User, string]
+	StorageUntil          ent.OrderedColumn[entity.User, time2.Time]
 	RestoreTransactionIDs ent.ArrayColumn[entity.User, string]
 	PurchasesSyncedAt     ent.OrderedColumn[entity.User, time2.Time]
 	CoupleID              ent.OrderedColumn[entity.User, uuid.UUID]
@@ -184,7 +189,8 @@ var Columns = []string{
 	FieldPairingCode,
 	FieldCallAlert,
 	FieldHighlightAlert,
-	FieldPremiumUntil,
+	FieldStorageEntitlement,
+	FieldStorageUntil,
 	FieldRestoreTransactionIDs,
 	FieldPurchasesSyncedAt,
 	FieldCoupleID,

@@ -11,6 +11,7 @@ import (
 	"cameo/internal/ent"
 	entUser "cameo/internal/ent/user"
 	"cameo/internal/protocol"
+	"cameo/server/services/purchase"
 	"cameo/server/services/request_context"
 	"cameo/server/services/storage"
 )
@@ -26,12 +27,13 @@ const (
 var errNotFound = protocol.ErrorResponse{Code: protocol.NotFound, Message: "photo not found"}
 
 type Handler struct {
-	db      *ent.Client
-	storage *storage.Service
+	db       *ent.Client
+	storage  *storage.Service
+	purchase *purchase.Service
 }
 
-func NewHandler(db *ent.Client, storage *storage.Service) *Handler {
-	return &Handler{db: db, storage: storage}
+func NewHandler(db *ent.Client, storage *storage.Service, purchase *purchase.Service) *Handler {
+	return &Handler{db: db, storage: storage, purchase: purchase}
 }
 
 // coupleID returns the authenticated user's couple, or couple:not_connected.

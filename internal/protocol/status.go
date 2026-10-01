@@ -25,6 +25,8 @@ var statuses = map[string]int{
 	PhotoInvalidState:     http.StatusConflict,
 
 	PurchaseRequired: http.StatusPaymentRequired,
+
+	StorageQuotaExceeded: http.StatusPaymentRequired,
 }
 
 // HTTPStatus maps an error code to its HTTP status. Unknown codes are client errors.

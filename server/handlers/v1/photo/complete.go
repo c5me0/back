@@ -78,14 +78,16 @@ func (h *Handler) Complete(ctx context.Context) (res *models.Photo, ret error) {
 
 	// Exec instead of Save: staticcheck v0.8.0 mis-maps facts of builders with generic methods (SA4023 panic).
 	err = tx.Photo.UpdateOneID(row.ID).Apply(ent.PhotoPatch{
-		Status:    ent.Some(photo.StatusUploaded),
-		SizeBytes: ent.Some(original.Size),
+		Status:             ent.Some(photo.StatusUploaded),
+		SizeBytes:          ent.Some(original.Size),
+		ThumbnailSizeBytes: ent.Some(thumbnail.Size),
 	}).Exec(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("update photo: %w", err)
 	}
 	row.Status = photo.StatusUploaded
 	row.SizeBytes = original.Size
+	row.ThumbnailSizeBytes = thumbnail.Size
 
 	result, err := models.PresignedPhoto(ctx, h.storage, row, request_context.UserID(ctx), request_context.Time(ctx).Add(downloadExpiry))
 	if err != nil {

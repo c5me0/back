@@ -12,6 +12,7 @@ import (
 	entCall "cameo/internal/ent/call"
 	entCouple "cameo/internal/ent/couple"
 	entPhoto "cameo/internal/ent/photo"
+	"cameo/internal/ent/schema_types/photo"
 	entUser "cameo/internal/ent/user"
 	"cameo/internal/protocol"
 	"cameo/server/handlers/v1/models"
@@ -78,7 +79,7 @@ func (h *Handler) Restore(ctx context.Context) (*models.Restorable, error) {
 		if err != nil {
 			return nil, fmt.Errorf("count calls: %w", err)
 		}
-		photos, err := tx.Photo.Query().Where(entPhoto.CoupleID.In(previous...)).Count(ctx)
+		photos, err := tx.Photo.Query().Where(entPhoto.CoupleID.In(previous...), entPhoto.Status.EQ(photo.StatusUploaded)).Count(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("count photos: %w", err)
 		}

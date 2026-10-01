@@ -26,7 +26,8 @@ func (User) Fields() []ent.Field {
 		field.String("pairing_code").NotEmpty(),
 		field.Bool("call_alert").Default(true),
 		field.Bool("highlight_alert").Default(true),
-		field.Time("premium_until").Optional().Nillable(),
+		field.String("storage_entitlement").Optional().Nillable(),
+		field.Time("storage_until").Optional().Nillable(),
 		field.Array[[]string]("restore_transaction_ids").Default([]string{}).Annotations(entsql.Default("{}")),
 		field.Time("purchases_synced_at").Optional().Nillable(),
 

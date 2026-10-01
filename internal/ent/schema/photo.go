@@ -29,6 +29,7 @@ func (Photo) Fields() []ent.Field {
 		field.String("object_key").NotEmpty().Immutable(),
 		field.String("thumbnail_key").NotEmpty().Immutable(),
 		field.Int64("size_bytes"),
+		field.Int64("thumbnail_size_bytes").Default(0),
 		field.Int("width").Optional().Nillable(),
 		field.Int("height").Optional().Nillable(),
 		field.Time("taken_at").Optional().Nillable(),

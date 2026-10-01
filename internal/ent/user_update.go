@@ -65,7 +65,9 @@ func (b *UserUpdate) SetExpr[T any](column ent.ColumnOf[entity.User, T], value e
 
 	case user.FieldHighlightAlert:
 
-	case user.FieldPremiumUntil:
+	case user.FieldStorageEntitlement:
+
+	case user.FieldStorageUntil:
 
 	case user.FieldRestoreTransactionIDs:
 
@@ -277,11 +279,17 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.patch.HighlightAlert.Get(); ok {
 		_spec.SetField(user.FieldHighlightAlert, field.TypeBool, value)
 	}
-	if value, ok := _u.mutation.patch.PremiumUntil.Get(); ok {
-		_spec.SetField(user.FieldPremiumUntil, field.TypeTime, value)
+	if value, ok := _u.mutation.patch.StorageEntitlement.Get(); ok {
+		_spec.SetField(user.FieldStorageEntitlement, field.TypeString, value)
 	}
-	if _u.mutation.patch.PremiumUntil.IsNull() {
-		_spec.ClearField(user.FieldPremiumUntil, field.TypeTime)
+	if _u.mutation.patch.StorageEntitlement.IsNull() {
+		_spec.ClearField(user.FieldStorageEntitlement, field.TypeString)
+	}
+	if value, ok := _u.mutation.patch.StorageUntil.Get(); ok {
+		_spec.SetField(user.FieldStorageUntil, field.TypeTime, value)
+	}
+	if _u.mutation.patch.StorageUntil.IsNull() {
+		_spec.ClearField(user.FieldStorageUntil, field.TypeTime)
 	}
 	if value, ok := _u.mutation.patch.RestoreTransactionIDs.Get(); ok {
 		_spec.SetField(user.FieldRestoreTransactionIDs, field.TypeArray, value)
@@ -720,7 +728,9 @@ func (b *UserUpdateOne) SetExpr[T any](column ent.ColumnOf[entity.User, T], valu
 
 	case user.FieldHighlightAlert:
 
-	case user.FieldPremiumUntil:
+	case user.FieldStorageEntitlement:
+
+	case user.FieldStorageUntil:
 
 	case user.FieldRestoreTransactionIDs:
 
@@ -950,11 +960,17 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	if value, ok := _u.mutation.patch.HighlightAlert.Get(); ok {
 		_spec.SetField(user.FieldHighlightAlert, field.TypeBool, value)
 	}
-	if value, ok := _u.mutation.patch.PremiumUntil.Get(); ok {
-		_spec.SetField(user.FieldPremiumUntil, field.TypeTime, value)
+	if value, ok := _u.mutation.patch.StorageEntitlement.Get(); ok {
+		_spec.SetField(user.FieldStorageEntitlement, field.TypeString, value)
 	}
-	if _u.mutation.patch.PremiumUntil.IsNull() {
-		_spec.ClearField(user.FieldPremiumUntil, field.TypeTime)
+	if _u.mutation.patch.StorageEntitlement.IsNull() {
+		_spec.ClearField(user.FieldStorageEntitlement, field.TypeString)
+	}
+	if value, ok := _u.mutation.patch.StorageUntil.Get(); ok {
+		_spec.SetField(user.FieldStorageUntil, field.TypeTime, value)
+	}
+	if _u.mutation.patch.StorageUntil.IsNull() {
+		_spec.ClearField(user.FieldStorageUntil, field.TypeTime)
 	}
 	if value, ok := _u.mutation.patch.RestoreTransactionIDs.Get(); ok {
 		_spec.SetField(user.FieldRestoreTransactionIDs, field.TypeArray, value)

@@ -13,7 +13,7 @@ import (
 // lifetime stands in for the expiry of an entitlement that never expires.
 var lifetime = time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC)
 
-// Sync copies the user's premium expiry and restore purchases from RevenueCat onto the user row and returns the reloaded user.
+// Sync copies the user's largest active storage tier and restore purchases from RevenueCat onto the user row and returns the reloaded user.
 func (s *Service) Sync(ctx context.Context, userID uuid.UUID) (*ent.User, error) {
 	if !s.Enabled() {
 		return s.loadUser(ctx, userID)
@@ -24,16 +24,20 @@ func (s *Service) Sync(ctx context.Context, userID uuid.UUID) (*ent.User, error)
 		return nil, err
 	}
 
-	var premiumUntil *time.Time
-	if premium, ok := subscriber.Entitlements[s.config.PremiumEntitlement]; ok {
-		until := lifetime
-		if premium.ExpiresDate != nil {
-			until = *premium.ExpiresDate
-			if premium.GracePeriodExpiresDate != nil && premium.GracePeriodExpiresDate.After(until) {
-				until = *premium.GracePeriodExpiresDate
+	var storageEntitlement *string
+	var storageUntil *time.Time
+	if s.quota != nil {
+		now := time.Now()
+		for entitlementID, entitlement := range subscriber.Entitlements {
+			quotaBytes, ok := s.quota.Tiers[entitlementID]
+			until := entitlement.until()
+			if !ok || !until.After(now) {
+				continue
+			}
+			if storageEntitlement == nil || quotaBytes > s.quota.Tiers[*storageEntitlement] {
+				storageEntitlement, storageUntil = &entitlementID, &until
 			}
 		}
-		premiumUntil = &until
 	}
 
 	restorePurchases := subscriber.NonSubscriptions[s.config.RestoreProductID]
@@ -44,7 +48,8 @@ func (s *Service) Sync(ctx context.Context, userID uuid.UUID) (*ent.User, error)
 
 	// Exec and reload instead of Save: staticcheck v0.8.0 SA4023 panics on UserUpdateOne.Save.
 	err = s.db.User.UpdateOneID(userID).Apply(ent.UserPatch{
-		PremiumUntil:          ent.NullIfNil(premiumUntil),
+		StorageEntitlement:    ent.NullIfNil(storageEntitlement),
+		StorageUntil:          ent.NullIfNil(storageUntil),
 		RestoreTransactionIDs: ent.Some(restoreTransactionIDs),
 		PurchasesSyncedAt:     ent.Some(time.Now()),
 	}).Exec(ctx)

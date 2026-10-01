@@ -72,6 +72,8 @@ func (b *CallCreate) SetExpr[T any](column ent.ColumnOf[entity.Call, T], value e
 
 	case call.FieldRecordingKey:
 
+	case call.FieldRecordingBytes:
+
 	case call.FieldFavoritedBy:
 
 	case call.FieldStartedAt:
@@ -192,6 +194,11 @@ func (b *CallCreate) defaults() error {
 		b.mutation.insert.TranscriptStatus = ent.Some(call.DefaultTranscriptStatus())
 	}
 
+	if b.mutation.insert.RecordingBytes.IsUnset() && b.mutation.insert.expressions[call.FieldRecordingBytes] == nil {
+
+		b.mutation.insert.RecordingBytes = ent.Some(call.DefaultRecordingBytes)
+	}
+
 	if b.mutation.insert.FavoritedBy.IsUnset() && b.mutation.insert.expressions[call.FieldFavoritedBy] == nil {
 
 		b.mutation.insert.FavoritedBy = ent.Some(call.DefaultFavoritedBy)
@@ -249,6 +256,10 @@ func (b *CallCreate) check() error {
 			}
 
 		}
+	}
+
+	if b.mutation.insert.RecordingBytes.IsNull() {
+		return &ValidationError{Name: "recording_bytes", err: errors.New(`ent: field "Call.recording_bytes" is not nullable`)}
 	}
 
 	if b.mutation.insert.FavoritedBy.IsNull() {
@@ -363,6 +374,13 @@ func (_c *CallCreate) createSpec() (*Call, *sqlgraph.CreateSpec, error) {
 	}
 	if _c.mutation.insert.RecordingKey.IsNull() {
 		_spec.SetField(call.FieldRecordingKey, field.TypeString, nil)
+	}
+
+	if value, ok := _c.mutation.insert.RecordingBytes.Get(); ok {
+		_spec.SetField(call.FieldRecordingBytes, field.TypeInt64, value)
+	}
+	if _c.mutation.insert.RecordingBytes.IsNull() {
+		_spec.SetField(call.FieldRecordingBytes, field.TypeInt64, nil)
 	}
 
 	if value, ok := _c.mutation.insert.FavoritedBy.Get(); ok {
@@ -681,6 +699,9 @@ func (u *CallUpsert) Set[T any](column ent.ColumnOf[entity.Call, T], value T) *C
 	case call.FieldRecordingKey:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
+	case call.FieldRecordingBytes:
+		u.UpdateSet.Set(column.Ref().Name, value)
+
 	case call.FieldFavoritedBy:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
@@ -729,6 +750,9 @@ func (u *CallUpsert) SetExpr[T any](column ent.ColumnOf[entity.Call, T], value e
 	case call.FieldRecordingKey:
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
+	case call.FieldRecordingBytes:
+		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
+
 	case call.FieldFavoritedBy:
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
@@ -771,6 +795,9 @@ func (u *CallUpsert) UpdateNewValue[T any](column ent.ColumnOf[entity.Call, T]) 
 	case call.FieldRecordingKey:
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
+	case call.FieldRecordingBytes:
+		u.UpdateSet.SetExcluded(column.Ref().Name)
+
 	case call.FieldFavoritedBy:
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
@@ -802,6 +829,9 @@ func (u *CallUpsert) Add[T ent.Number](column ent.ColumnOf[entity.Call, T], delt
 		u.UpdateSet.Add(column.Ref().Name, delta)
 
 	case call.FieldTranscriptStatus:
+		u.UpdateSet.Add(column.Ref().Name, delta)
+
+	case call.FieldRecordingBytes:
 		u.UpdateSet.Add(column.Ref().Name, delta)
 
 	default:

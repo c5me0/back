@@ -50,13 +50,8 @@ func (s *Server) route() http.Handler {
 			s.routeAccount(authenticated)
 			s.routeCouple(authenticated)
 			s.routeDevice(authenticated)
-
-			authenticated.Group(func(premium chi.Router) {
-				premium.Use(s.purchase.Middleware)
-
-				s.routePhoto(premium)
-				s.routeCall(premium)
-			})
+			s.routePhoto(authenticated)
+			s.routeCall(authenticated)
 		})
 	})
 

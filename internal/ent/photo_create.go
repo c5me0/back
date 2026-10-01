@@ -70,6 +70,8 @@ func (b *PhotoCreate) SetExpr[T any](column ent.ColumnOf[entity.Photo, T], value
 
 	case photo.FieldSizeBytes:
 
+	case photo.FieldThumbnailSizeBytes:
+
 	case photo.FieldWidth:
 
 	case photo.FieldHeight:
@@ -183,6 +185,11 @@ func (b *PhotoCreate) defaults() error {
 		b.mutation.insert.Status = ent.Some(photo.DefaultStatus())
 	}
 
+	if b.mutation.insert.ThumbnailSizeBytes.IsUnset() && b.mutation.insert.expressions[photo.FieldThumbnailSizeBytes] == nil {
+
+		b.mutation.insert.ThumbnailSizeBytes = ent.Some(photo.DefaultThumbnailSizeBytes)
+	}
+
 	if b.mutation.insert.FavoritedBy.IsUnset() && b.mutation.insert.expressions[photo.FieldFavoritedBy] == nil {
 
 		b.mutation.insert.FavoritedBy = ent.Some(photo.DefaultFavoritedBy)
@@ -283,6 +290,10 @@ func (b *PhotoCreate) check() error {
 		}
 	}
 
+	if b.mutation.insert.ThumbnailSizeBytes.IsNull() {
+		return &ValidationError{Name: "thumbnail_size_bytes", err: errors.New(`ent: field "Photo.thumbnail_size_bytes" is not nullable`)}
+	}
+
 	if b.mutation.insert.FavoritedBy.IsNull() {
 		return &ValidationError{Name: "favorited_by", err: errors.New(`ent: field "Photo.favorited_by" is not nullable`)}
 	}
@@ -376,6 +387,13 @@ func (_c *PhotoCreate) createSpec() (*Photo, *sqlgraph.CreateSpec, error) {
 	if _, present := _c.present[photo.FieldSizeBytes]; !_c.fromBuilder || present {
 		value := _c.mutation.insert.SizeBytes
 		_spec.SetField(photo.FieldSizeBytes, field.TypeInt64, value)
+	}
+
+	if value, ok := _c.mutation.insert.ThumbnailSizeBytes.Get(); ok {
+		_spec.SetField(photo.FieldThumbnailSizeBytes, field.TypeInt64, value)
+	}
+	if _c.mutation.insert.ThumbnailSizeBytes.IsNull() {
+		_spec.SetField(photo.FieldThumbnailSizeBytes, field.TypeInt64, nil)
 	}
 
 	if value, ok := _c.mutation.insert.Width.Get(); ok {
@@ -647,6 +665,9 @@ func (u *PhotoUpsert) Set[T any](column ent.ColumnOf[entity.Photo, T], value T) 
 	case photo.FieldSizeBytes:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
+	case photo.FieldThumbnailSizeBytes:
+		u.UpdateSet.Set(column.Ref().Name, value)
+
 	case photo.FieldWidth:
 		u.UpdateSet.Set(column.Ref().Name, value)
 
@@ -684,6 +705,9 @@ func (u *PhotoUpsert) SetExpr[T any](column ent.ColumnOf[entity.Photo, T], value
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
 	case photo.FieldSizeBytes:
+		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
+
+	case photo.FieldThumbnailSizeBytes:
 		u.UpdateSet.Set(column.Ref().Name, sql.ExprFunc(value.Render))
 
 	case photo.FieldWidth:
@@ -725,6 +749,9 @@ func (u *PhotoUpsert) UpdateNewValue[T any](column ent.ColumnOf[entity.Photo, T]
 	case photo.FieldSizeBytes:
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
+	case photo.FieldThumbnailSizeBytes:
+		u.UpdateSet.SetExcluded(column.Ref().Name)
+
 	case photo.FieldWidth:
 		u.UpdateSet.SetExcluded(column.Ref().Name)
 
@@ -759,6 +786,9 @@ func (u *PhotoUpsert) Add[T ent.Number](column ent.ColumnOf[entity.Photo, T], de
 		u.UpdateSet.Add(column.Ref().Name, delta)
 
 	case photo.FieldSizeBytes:
+		u.UpdateSet.Add(column.Ref().Name, delta)
+
+	case photo.FieldThumbnailSizeBytes:
 		u.UpdateSet.Add(column.Ref().Name, delta)
 
 	case photo.FieldWidth:

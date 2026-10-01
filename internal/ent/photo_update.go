@@ -59,6 +59,8 @@ func (b *PhotoUpdate) SetExpr[T any](column ent.ColumnOf[entity.Photo, T], value
 
 	case photo.FieldSizeBytes:
 
+	case photo.FieldThumbnailSizeBytes:
+
 	case photo.FieldWidth:
 
 	case photo.FieldHeight:
@@ -239,6 +241,10 @@ func (b *PhotoUpdate) check() error {
 		return &ValidationError{Name: "size_bytes", err: errors.New(`ent: field "Photo.size_bytes" is not nullable`)}
 	}
 
+	if b.mutation.patch.ThumbnailSizeBytes.IsNull() {
+		return &ValidationError{Name: "thumbnail_size_bytes", err: errors.New(`ent: field "Photo.thumbnail_size_bytes" is not nullable`)}
+	}
+
 	if b.mutation.patch.FavoritedBy.IsNull() {
 		return &ValidationError{Name: "favorited_by", err: errors.New(`ent: field "Photo.favorited_by" is not nullable`)}
 	}
@@ -290,6 +296,12 @@ func (_u *PhotoUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.patch.SizeBytesAdd.Get(); ok {
 		_spec.AddField(photo.FieldSizeBytes, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.patch.ThumbnailSizeBytes.Get(); ok {
+		_spec.SetField(photo.FieldThumbnailSizeBytes, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.patch.ThumbnailSizeBytesAdd.Get(); ok {
+		_spec.AddField(photo.FieldThumbnailSizeBytes, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.patch.Width.Get(); ok {
 		_spec.SetField(photo.FieldWidth, field.TypeInt, value)
@@ -447,6 +459,8 @@ func (b *PhotoUpdateOne) SetExpr[T any](column ent.ColumnOf[entity.Photo, T], va
 	case photo.FieldContentType:
 
 	case photo.FieldSizeBytes:
+
+	case photo.FieldThumbnailSizeBytes:
 
 	case photo.FieldWidth:
 
@@ -629,6 +643,10 @@ func (b *PhotoUpdateOne) check() error {
 		return &ValidationError{Name: "size_bytes", err: errors.New(`ent: field "Photo.size_bytes" is not nullable`)}
 	}
 
+	if b.mutation.patch.ThumbnailSizeBytes.IsNull() {
+		return &ValidationError{Name: "thumbnail_size_bytes", err: errors.New(`ent: field "Photo.thumbnail_size_bytes" is not nullable`)}
+	}
+
 	if b.mutation.patch.FavoritedBy.IsNull() {
 		return &ValidationError{Name: "favorited_by", err: errors.New(`ent: field "Photo.favorited_by" is not nullable`)}
 	}
@@ -697,6 +715,12 @@ func (_u *PhotoUpdateOne) sqlSave(ctx context.Context) (_node *Photo, err error)
 	}
 	if value, ok := _u.mutation.patch.SizeBytesAdd.Get(); ok {
 		_spec.AddField(photo.FieldSizeBytes, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.patch.ThumbnailSizeBytes.Get(); ok {
+		_spec.SetField(photo.FieldThumbnailSizeBytes, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.patch.ThumbnailSizeBytesAdd.Get(); ok {
+		_spec.AddField(photo.FieldThumbnailSizeBytes, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.patch.Width.Get(); ok {
 		_spec.SetField(photo.FieldWidth, field.TypeInt, value)

@@ -37,6 +37,15 @@ func (h *Handler) Create(ctx context.Context) (*CreateResponse, error) {
 		return nil, fmt.Errorf("load partner: %w", err)
 	}
 
+	// A call records at least one byte, so a couple at its quota cannot start one.
+	status, err := h.purchase.Status(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	if err = status.Storage.Reserve(1); err != nil {
+		return nil, err
+	}
+
 	// InsertBulk instead of Insert: staticcheck v0.8.0 mis-maps facts of builders with generic methods (SA4023 panic).
 	rows, err := h.db.Call.InsertBulk(ent.CallInsert{
 		CoupleID: *user.CoupleID,
